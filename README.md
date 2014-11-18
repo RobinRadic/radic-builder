@@ -31,14 +31,15 @@ Main goal is to create a process that makes it possible to only include features
 
 
 
-## The following authors shared (MIT licensed) code have been either been fully included, partially copied or inspired this project.
+#### The following authors shared (MIT licensed) code have been either been fully included, partially copied or inspired this project.
 - [@Benvie](https://github.com/Benvie/fat-grabby-hands): fat-grabby-hands (+1 for naming)
 - [jQuery and jQuery UI](https://github.com/jquery)
 - lodash
-- jquery.cookie
-- async
+- asyncWaterfall
 - [@alexei](https://github.com/alexei/sprintf.js): sprintf
 - [PHPJS](http://phpjs.com)
+- [@piotrl](https://github.com/piotrl/github-profile-widget) Inspired the profile widget (re-written it completely, apart from the CSS)
+
 
 
 License

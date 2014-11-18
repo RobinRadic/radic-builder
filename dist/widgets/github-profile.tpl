@@ -9,15 +9,19 @@
                 <a href="<%= user.html_url %>" class="follow-button">Follow @<%= user.login %></a>
                 <span class="followers"><%= user.folowers %></span>
             </div>
-            <div>
-
-            </div>
-            <ul class="languages">
-                <li>JavaScript</li>
-                <li>Java</li>
-                <li>C</li>
-            </ul>
         </div>
+        <table class="languages-list">
+            <tr>
+                <td>Language</td>
+                <td>Lines of code written</td>
+            </tr>
+            <% $.each(topLanguages, function(i, o){ %>
+            <tr>
+                <td><%= o[0] %></td>
+                <td><small><%= o[1] %></small></td>
+            </tr>
+            <% }); %>
+        </table>
         <div class="repos">
             <span class="header">Most starred repositories</span>
             <% $.each(topRepos, function(i, o){ %>

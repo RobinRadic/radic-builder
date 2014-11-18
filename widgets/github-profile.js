@@ -84,6 +84,23 @@
                     })
                 },
                 function (apiData, done) {
+                    apiData.languages = {};
+                    $.async.each(apiData.repos, function(repo, next){
+                        $.github.repos.languages(username, repo.name, function(langData){
+                            $.each(langData, function(i, lang){
+                                if(typeof apiData.languages[i] === 'undefined'){
+                                    apiData.languages[i] = lang;
+                                } else {
+                                    apiData.languages[i] += lang;
+                                }
+                            });
+                            next();
+                        });
+                    }, function(){
+                        done(null, apiData)
+                    })
+                },
+                function (apiData, done) {
                     $.get('widgets/github-profile.tpl', function (templateData) {
                         console.log(templateData, apiData);
                         apiData.tpl = templateData;
@@ -96,16 +113,16 @@
             });
         },
 
-        _sortLanguages: function (repos) {
+        _sortLanguages: function (languages) {
             var topLangs = [];
-            for (var k in this.langs) {
-                topLangs.push([k, this.langs[k]]);
+            for (var k in languages) {
+                topLangs.push([k, languages[k]]);
             }
 
             topLangs.sort(function (a, b) {
                 return b[1] - a[1];
             });
-
+            return topLangs;
         },
 
         _sortRepositories: function (reposData) {
@@ -119,7 +136,8 @@
                 }
             });
 
-            return reposData;
+
+            return reposData.slice(0, self.options.maxRepos);
         },
 
         _getData: function (callback) {
@@ -137,7 +155,7 @@
                     done(null, data)
                 },
                 function (data, done) {
-                    data.topLanguages = self._sortLanguages(data.repos);
+                    data.topLanguages = self._sortLanguages(data.languages);
                     done(null, data)
                 }
             ], function (err, result) {
