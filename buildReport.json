@@ -1,0 +1,12 @@
+{
+	"layerName": {
+		"modules": {
+			"core": true,
+			"var/arr": true,
+			"var/concat": true,
+			"var/slice": true
+		},
+		"shims": [
+		]
+	}
+}

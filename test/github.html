@@ -1,0 +1,25 @@
+<script>
+    function showJson(data) {
+        var raw = JSON.stringify(data);
+        raw = raw.replace(/"(.*?)":"(.*?)",/g, '"$1": "$2",\n');
+        showcode(raw);
+    }
+
+    function test(uri) {
+        $.github.get(uri, function (data) {
+            console.log('uri', data);
+            header(uri);
+            showJson(data);
+        });
+
+    }
+
+    test('users/robinradic');
+
+    test('users/robinradic/repos');
+
+    test('users/robinradic/gists')
+
+
+</script>
+

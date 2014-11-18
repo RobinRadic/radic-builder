@@ -1,0 +1,9 @@
+#!/bin/sh
+
+
+livereload() {
+    livereloadx -w 5 -y localhost:63342 ./ \
+        --exclude ./node_modules
+}
+
+$*
