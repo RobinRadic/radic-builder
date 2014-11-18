@@ -121,6 +121,16 @@ module.exports = function (grunt) {
             tmp: ['.tmp'],
             dist: ['dist']
         },
+        uglify: {
+            options: {
+                report: 'gzip'
+            },
+            dist: {
+                files: {
+                    'dist/jquery.custom.min.js': ['dist/jquery.js']
+                }
+            }
+        },
         watch: {
             js: {
                 files: 'src/**',
