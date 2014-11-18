@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title></title>
+
+    
+    <style type="text/css">
+        body {
+    
+            font-family: "Source Code Pro", "Consolas", "Monaco", "Bitstream Vera Sans Mono", "Courier New", Courier, monospace;
+            font-size: 11px;
+        }
+    
+        .bullet {
+            padding: 7px 0;
+        }
+        ul {
+            list-style: none;
+            display: table;
+        }
+        li {
+    
+            list-style-type: none;
+        }
+    
+        li span {
+    
+            font-family: "Source Code Pro", "Consolas", "Monaco", "Bitstream Vera Sans Mono", "Courier New", Courier, monospace;
+            font-size: 11px;
+            display: table-cell;
+            padding: 5px;
+        }
+    
+    
+        .fa {
+            display: table-cell;
+            padding: 2px;
+            text-align: center;
+        }
+        .fa-check{
+            color: green;
+        }
+        .fa-warning{
+            color: #ffb039;
+        }
+        .fa-close{
+            color: red;
+        }
+        .fa-info-circle{
+            color: #64ccff;
+        }
+    
+        .header{
+            font-weight: 700;
+            font-size: 13px;
+        }
+    
+        pre {outline: 1px solid #ccc; padding: 5px; margin: 5px; }
+        .string { color: green; }
+        .number { color: darkorange; }
+        .boolean { color: blue; }
+        .null { color: magenta; }
+        .key { color: red; }
+    </style>
+    <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    
+</head>
+<body>
+
+
+
+
+
+
+
+<script src="jquery.js"></script>
+
+
+
+<script>
+    var code = $('pre code');
+   // code.html(code.html().replace("\n", ""));
+
+    function line(txt, type){
+
+        var types = {
+            ok: 'check',
+            warning: 'warning',
+            error: 'close',
+            info: 'info-circle'
+        };
+
+        var txtclass = '';
+        if(typeof type === 'undefined'){
+            txtclass = 'class="header"';
+        }
+
+        $('body').append('<div class="bullet"><i class="fa fa-' + types[type] + '">&nbsp;</i><span '+txtclass+'>' + txt + '</span></div>');
+    }
+
+    function error(txt){
+        line(txt, 'error');
+    }
+    function ok(txt){
+        line(txt, 'ok');
+    }
+    function warning(txt){
+        line(txt, 'warning');
+    }
+    function info(txt){
+        line(txt, 'info');
+    }
+    function header(txt){
+        line(txt);
+    }
+
+    function output(inp) {
+        document.body.appendChild(document.createElement('pre')).innerHTML = inp;
+    }
+
+    function syntaxHighlight(json) {
+        json = json.replace(/&/g, '&').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+            var cls = 'number';
+            if (/^"/.test(match)) {
+                if (/:$/.test(match)) {
+                    cls = 'key';
+                } else {
+                    cls = 'string';
+                }
+
+
+            } else if (/true|false/.test(match)) {
+                cls = 'boolean';
+            } else if (/null/.test(match)) {
+                cls = 'null';
+            }
+            return '<span class="' + cls + '">' + match + '</span>';
+        });
+    }
+
+    var obj = {a:1, 'b':'foo', c:[false,'false',null, 'null', {d:{e:1.3e5,f:'1.3e5'}}]};
+    var str = JSON.stringify(obj, undefined, 4);
+
+
+    ///output(str);
+
+    function showcode(txt){
+        output(syntaxHighlight(txt));
+    }
+    function showscript(id){
+        showcode(unescape($('#' + id).html()));
+    }
+    /*
+     line('jQuery loaded');
+     line('sadf', 'error');
+     line('sadf', 'ok');
+     line('asdf', 'warning');
+     line('asdf', 'info');
+     */
+</script>
+
+
+
+
+<script>
+    function showJson(data) {
+        var raw = JSON.stringify(data);
+        raw = raw.replace(/"(.*?)":"(.*?)",/g, '"$1": "$2",\n');
+        showcode(raw);
+    }
+
+    function test(uri) {
+        $.github.get(uri, function (data) {
+            console.log('uri', data);
+            header(uri);
+            showJson(data);
+        });
+
+    }
+
+    test('users/robinradic');
+
+    test('users/robinradic/repos');
+
+    test('users/robinradic/gists')
+
+
+</script>
+
+
+
+
+
+
+</body>
+</html>

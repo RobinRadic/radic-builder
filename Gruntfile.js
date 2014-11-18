@@ -89,16 +89,7 @@ module.exports = function (grunt) {
                     }
                 ]
             },
-            tests: {
-                files: [
-                    {
-                        expand: true,
-                        cwd: 'test/',
-                        src: ['**'],
-                        dest: 'dist/test/'
-                    }
-                ]
-            },
+
             jquery2src: {
                 src: 'node_modules/jquery/src/jquery.js',
                 dest: 'src/jquery.js'
@@ -173,7 +164,7 @@ module.exports = function (grunt) {
         'clean:dist',
         'copy:src2build',
         modulesToBuild,
-        'copy:tests',
+
         'preprocess:html',
         'clean:tmp',
         'copy:test2dist'
