@@ -34,6 +34,7 @@ define([
 	"./crypt",
 	"./etag",
 	"./github",
+	"./widgets",
 
 	"./deprecated",
 	"./exports/amd",
