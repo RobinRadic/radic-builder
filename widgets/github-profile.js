@@ -80,12 +80,18 @@
                 },
                 function(done){
                     info('getting user repos');
-                    $.github.get('users/' + username + '/repos', function (repoData) {
-                        self.data.repos = repoData;
-                        ok('got user, falling to next');
 
-                        return done(null);
-                    });
+                    var filter = function(data){
+                        return  $.github.filters.objectArray(data, 'pick', ['html_url', 'description', 'name']) ;
+                    };
+
+                    $.github.get('users/' + username + '/repos?page=1&per_page=40', function (repoData) {
+                        self.data.repos = repoData;
+
+                        ok('got user, falling to next');
+                        done(null);
+
+                    }, { resultFilter: filter });
                 }
             ], function(){
                 ok('waterfall done, result:');
@@ -144,3 +150,9 @@
     });
 
 }));
+
+/*,
+ 'id', 'full_name', 'created_at', 'updated_at',
+ 'pushed_at', 'git_url', 'size', 'watchers_count', 'stargazers_count',
+ 'has_issues', 'has_downloads', 'has_wiki', 'has_pages', 'forks_count',
+ 'forks', 'watchers', 'open_issues_count', 'language']);*/

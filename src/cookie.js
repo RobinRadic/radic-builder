@@ -44,23 +44,27 @@ define([
 
             get: function (name, config) {
 
-                var options = {};
-                jQuery.extend(options, this.options, config);
+                var options = jQuery.cloneDeep(this.options);
+                jQuery.extend(options, config);
+
                 var expression = new RegExp('(^|; )' + encodeURIComponent(name) + '=(.*?)($|;)'),
                     matches = document.cookie.match(expression),
                     value = matches ? decodeURIComponent(matches[2]) : null;
 
                 if (options.json === true) {
-                    value = JSON.parse(value);
+                    try {
+                        value = jQuery.parseJSON(value);
+                    }
+                    catch(e){
+                        value = jQuery.parseJSON('{ data: ' + value + ' }');
+                    }
                 }
 
                 return value;
             },
             set: function (name, value, config) {
-                var options = {};
-                jQuery.extend(options, this.options, config);
-
-
+                var options = jQuery.cloneDeep(this.options);
+                jQuery.extend(options, config);
                 // console.log(options);
 
                 // JSON OR NOO JSON

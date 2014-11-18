@@ -188,7 +188,7 @@ module.exports = function (grunt) {
         'preprocess:html',
         'clean:tmp',
         'copy:test2dist',
-        'uglify:dist'
+     //   'uglify:dist'
     ]);
 
 

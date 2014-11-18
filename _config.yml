@@ -2,3 +2,9 @@ tmp: ./tmp
 
 app: src
 dest: dist
+
+lodash:
+  buildType: underscore
+  include: omit,pick,values,keys,where
+  exports: none
+  dest: lodash/lo.js

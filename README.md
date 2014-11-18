@@ -1,5 +1,8 @@
-Custom Jquery+LoDash+Whatever Build
+Custom JS Library builder
 ===================
+
+##### Status: Development
+
 
 #### Purpose:
 
@@ -7,33 +10,25 @@ Custom Jquery+LoDash+Whatever Build
 - To better understand jQuery inner workings
 - To build a smaller sizes jQuery library, by removing all unneeded stuff for certain projjects
 - Add some features by extending jQuery
+- Using LoDash build tools to integrate into jQuery
+- Everything should be configurable in the _config.yml file.
+
+Main goal is to create a process that makes it possible to only include features that are usefull for any project so the result will be as small as possible.
 
 #### Current modules:
 - cookie
 - crypt
 - etag
 - github
-- widgets (created by jquery-ui)
+- lodash (not the whole library, just a few features)
+- widget factory (created by jquery-ui)
+- sprintf/vsprintf
+- asyncWaterfall
 
-#### Small example:
-```javascript
-var crypted = $.crypt.md5('MD5MEPLZZZ');
-var encoded = $.crypt.utf8.encode('ENCDOEMEPLZZZ');
-var decoded = $.crypt.utf8.decode('ENCDOEMEPLZZZ');
-```
+#### Current widgets
+- Github Profile widget
 
 
-Building is similiar to how jquery is build, check out [http://github.com/jquery/jquery]. In my Gruntfile.js:
-```javascript
-var modulesToBuild =  "custom"; //'build:*:+core:+github';
-```
-
-#### How it works
-`/node_modules/jquery/src` is copied to `/.tmp`
-`/src` is copied to `/.tmp`, overiding all
-`Gruntfile.js` includes jQuery's `grunt-jquery/2.1.1/build.js` which combines it all
-The resulting `jquery.js` goes into the `dist` folder and `.tmp` will be cleaned.
-Can do a `grunt uglify` afterwards if wanted
 
 License
 --------------

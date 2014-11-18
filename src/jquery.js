@@ -37,6 +37,7 @@ define([
 	"./widgets",
 	"./waterfall",
 	"./sprintf",
+	"./lodash",
 
 	"./deprecated",
 	"./exports/amd",
