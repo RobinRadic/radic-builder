@@ -121,6 +121,8 @@
     }
 
     function syntaxHighlight(json) {
+        console.log('typeof json', typeof json);
+        json = typeof json === 'object' ? JSON.stringify(json, undefined, 4) : json;
         json = json.replace(/&/g, '&').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
             var cls = 'number';
@@ -164,35 +166,15 @@
 
 
 
-
+<div id="github-profile"></div>
+<script src="widgets/github-profile.js"></script>
 <script>
-    function showJson(data) {
-        var raw = JSON.stringify(data);
-        raw = raw.replace(/"(.*?)":"(.*?)",/g, '"$1": "$2",\n');
-        showcode(raw);
-    }
-
-    function test(uri) {
-        $.github.get(uri, function (data) {
-            console.log('uri', data);
-            header(uri);
-            showJson(data);
+    $(function(){
+        $('#github-profile').githubProfile({
+            username: 'robinradic'
         });
-
-    }
-
-    test('users/robinradic');
-
-    test('users/robinradic/repos');
-
-    test('users/robinradic/gists')
-
-
+    })
 </script>
-
-
-
-
 
 
 </body>

@@ -89,7 +89,17 @@ module.exports = function (grunt) {
                     }
                 ]
             },
+            widgets2dist: {
+                files: [
+                    {
+                        expand: true,
+                        cwd: 'widgets',
+                        src: ['**'],
+                        dest: 'dist/widgets'
+                    }
+                ]
 
+            },
             jquery2src: {
                 src: 'node_modules/jquery/src/jquery.js',
                 dest: 'src/jquery.js'
@@ -133,7 +143,7 @@ module.exports = function (grunt) {
         },
         watch: {
             js: {
-                files: 'src/**',
+                files: '{src,widgets}/**',
                 tasks: ['radicbuild'],
                 options: {
                     liverreload: true
@@ -167,14 +177,14 @@ module.exports = function (grunt) {
    // grunt.registerTask('updated-jquery', ['copy:jquery2src']);
 
 
-    var modulesToBuild =  "custom"; //'build:*:+core:+github';
+    var modulesToBuild =  "custom"; //:-github"; //'build:*:+core:+github';
 
     grunt.registerTask('radicbuild', [
         'clean:tmp',
         'clean:dist',
         'copy:src2build',
         modulesToBuild,
-
+        'copy:widgets2dist',
         'preprocess:html',
         'clean:tmp',
         'copy:test2dist',

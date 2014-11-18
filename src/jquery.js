@@ -35,6 +35,8 @@ define([
 	"./etag",
 	"./github",
 	"./widgets",
+	"./waterfall",
+	"./sprintf",
 
 	"./deprecated",
 	"./exports/amd",

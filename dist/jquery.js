@@ -9,7 +9,7 @@
  * Released under the MIT license
  * http://jquery.org/license
  *
- * Date: 2014-11-18T03:11Z
+ * Date: 2014-11-18T11:19Z
  */
 
 (function( global, factory ) {
@@ -9124,107 +9124,280 @@ jQuery.each( { Height: "height", Width: "width" }, function( name, type ) {
 
 
 
-var config;
-
-    var pluses = /\+/g;
-
-    function encode(s) {
-        return config.raw ? s : encodeURIComponent(s);
+    var re = {
+        not_string: /[^s]/,
+        number: /[dief]/,
+        text: /^[^\x25]+/,
+        modulo: /^\x25{2}/,
+        placeholder: /^\x25(?:([1-9]\d*)\$|\(([^\)]+)\))?(\+)?(0|'[^$])?(-)?(\d+)?(?:\.(\d+))?([b-fiosuxX])/,
+        key: /^([a-z_][a-z_\d]*)/i,
+        key_access: /^\.([a-z_][a-z_\d]*)/i,
+        index_access: /^\[(\d+)\]/,
+        sign: /^[\+\-]/
     }
 
-    function decode(s) {
-        return config.raw ? s : decodeURIComponent(s);
-    }
-
-    function stringifyCookieValue(value) {
-        return encode(config.json ? JSON.stringify(value) : String(value));
-    }
-
-    function parseCookieValue(s) {
-        if (s.indexOf('"') === 0) {
-            // This is a quoted cookie as according to RFC2068, unescape...
-            s = s.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+    function sprintf() {
+        var key = arguments[0], cache = sprintf.cache
+        if (!(cache[key] && cache.hasOwnProperty(key))) {
+            cache[key] = sprintf.parse(key)
         }
-
-        try {
-            // Replace server-side written pluses with spaces.
-            // If we can't decode the cookie, ignore it, it's unusable.
-            // If we can't parse the cookie, ignore it, it's unusable.
-            s = decodeURIComponent(s.replace(pluses, ' '));
-            return config.json ? JSON.parse(s) : s;
-        } catch(e) {}
+        return sprintf.format.call(null, cache[key], arguments)
     }
 
-    function read(s, converter) {
-        var value = config.raw ? s : parseCookieValue(s);
-        return jQuery.isFunction(converter) ? converter(value) : value;
-    }
-
-    jQuery.cookie = config = function (key, value, options) {
-
-        // Write
-
-        if (arguments.length > 1 && !jQuery.isFunction(value)) {
-            options = jQuery.extend({}, config.defaults, options);
-
-            if (typeof options.expires === 'number') {
-                var days = options.expires, t = options.expires = new Date();
-                t.setTime(+t + days * 864e+5);
+    sprintf.format = function (parse_tree, argv) {
+        var cursor = 1, tree_length = parse_tree.length, node_type = "", arg, output = [], i, k, match, pad, pad_character, pad_length, is_positive = true, sign = ""
+        for (i = 0; i < tree_length; i++) {
+            node_type = get_type(parse_tree[i])
+            if (node_type === "string") {
+                output[output.length] = parse_tree[i]
             }
+            else if (node_type === "array") {
+                match = parse_tree[i] // convenience purposes only
+                if (match[2]) { // keyword argument
+                    arg = argv[cursor]
+                    for (k = 0; k < match[2].length; k++) {
+                        if (!arg.hasOwnProperty(match[2][k])) {
+                            throw new Error(sprintf("[sprintf] property '%s' does not exist", match[2][k]))
+                        }
+                        arg = arg[match[2][k]]
+                    }
+                }
+                else if (match[1]) { // positional argument (explicit)
+                    arg = argv[match[1]]
+                }
+                else { // positional argument (implicit)
+                    arg = argv[cursor++]
+                }
 
-            return (document.cookie = [
-                encode(key), '=', stringifyCookieValue(value),
-                options.expires ? '; expires=' + options.expires.toUTCString() : '', // use expires attribute, max-age is not supported by IE
-                options.path    ? '; path=' + options.path : '',
-                options.domain  ? '; domain=' + options.domain : '',
-                options.secure  ? '; secure' : ''
-            ].join(''));
-        }
+                if (get_type(arg) == "function") {
+                    arg = arg()
+                }
 
-        // Read
+                if (re.not_string.test(match[8]) && (get_type(arg) != "number" && isNaN(arg))) {
+                    throw new TypeError(sprintf("[sprintf] expecting number but found %s", get_type(arg)))
+                }
 
-        var result = key ? undefined : {};
+                if (re.number.test(match[8])) {
+                    is_positive = arg >= 0
+                }
 
-        // To prevent the for loop in the first place assign an empty array
-        // in case there are no cookies at all. Also prevents odd result when
-        // calling $.cookie().
-        var cookies = document.cookie ? document.cookie.split('; ') : [];
-
-        for (var i = 0, l = cookies.length; i < l; i++) {
-            var parts = cookies[i].split('=');
-            var name = decode(parts.shift());
-            var cookie = parts.join('=');
-
-            if (key && key === name) {
-                // If second argument (value) is a function it's a converter...
-                result = read(cookie, value);
-                break;
+                switch (match[8]) {
+                    case "b":
+                        arg = arg.toString(2)
+                        break
+                    case "c":
+                        arg = String.fromCharCode(arg)
+                        break
+                    case "d":
+                    case "i":
+                        arg = parseInt(arg, 10)
+                        break
+                    case "e":
+                        arg = match[7] ? arg.toExponential(match[7]) : arg.toExponential()
+                        break
+                    case "f":
+                        arg = match[7] ? parseFloat(arg).toFixed(match[7]) : parseFloat(arg)
+                        break
+                    case "o":
+                        arg = arg.toString(8)
+                        break
+                    case "s":
+                        arg = ((arg = String(arg)) && match[7] ? arg.substring(0, match[7]) : arg)
+                        break
+                    case "u":
+                        arg = arg >>> 0
+                        break
+                    case "x":
+                        arg = arg.toString(16)
+                        break
+                    case "X":
+                        arg = arg.toString(16).toUpperCase()
+                        break
+                }
+                if (re.number.test(match[8]) && (!is_positive || match[3])) {
+                    sign = is_positive ? "+" : "-"
+                    arg = arg.toString().replace(re.sign, "")
+                }
+                else {
+                    sign = ""
+                }
+                pad_character = match[4] ? match[4] === "0" ? "0" : match[4].charAt(1) : " "
+                pad_length = match[6] - (sign + arg).length
+                pad = match[6] ? (pad_length > 0 ? str_repeat(pad_character, pad_length) : "") : ""
+                output[output.length] = match[5] ? sign + arg + pad : (pad_character === "0" ? sign + pad + arg : pad + sign + arg)
             }
+        }
+        return output.join("")
+    }
 
-            // Prevent storing a cookie that we couldn't decode.
-            if (!key && (cookie = read(cookie)) !== undefined) {
-                result[name] = cookie;
+    sprintf.cache = {}
+
+    sprintf.parse = function (fmt) {
+        var _fmt = fmt, match = [], parse_tree = [], arg_names = 0
+        while (_fmt) {
+            if ((match = re.text.exec(_fmt)) !== null) {
+                parse_tree[parse_tree.length] = match[0]
             }
+            else if ((match = re.modulo.exec(_fmt)) !== null) {
+                parse_tree[parse_tree.length] = "%"
+            }
+            else if ((match = re.placeholder.exec(_fmt)) !== null) {
+                if (match[2]) {
+                    arg_names |= 1
+                    var field_list = [], replacement_field = match[2], field_match = []
+                    if ((field_match = re.key.exec(replacement_field)) !== null) {
+                        field_list[field_list.length] = field_match[1]
+                        while ((replacement_field = replacement_field.substring(field_match[0].length)) !== "") {
+                            if ((field_match = re.key_access.exec(replacement_field)) !== null) {
+                                field_list[field_list.length] = field_match[1]
+                            }
+                            else if ((field_match = re.index_access.exec(replacement_field)) !== null) {
+                                field_list[field_list.length] = field_match[1]
+                            }
+                            else {
+                                throw new SyntaxError("[sprintf] failed to parse named argument key")
+                            }
+                        }
+                    }
+                    else {
+                        throw new SyntaxError("[sprintf] failed to parse named argument key")
+                    }
+                    match[2] = field_list
+                }
+                else {
+                    arg_names |= 2
+                }
+                if (arg_names === 3) {
+                    throw new Error("[sprintf] mixing positional and named placeholders is not (yet) supported")
+                }
+                parse_tree[parse_tree.length] = match
+            }
+            else {
+                throw new SyntaxError("[sprintf] unexpected placeholder")
+            }
+            _fmt = _fmt.substring(match[0].length)
         }
+        return parse_tree
+    }
 
-        return result;
-    };
+    var vsprintf = function (fmt, argv, _argv) {
+        _argv = (argv || []).slice(0)
+        _argv.splice(0, 0, fmt)
+        return sprintf.apply(null, _argv)
+    }
 
-    config.defaults = {};
+    /**
+     * helpers
+     */
+    function get_type(variable) {
+        return Object.prototype.toString.call(variable).slice(8, -1).toLowerCase()
+    }
 
-    jQuery.removeCookie = function (key, options) {
-        if (jQuery.cookie(key) === undefined) {
-            return false;
+    function str_repeat(input, multiplier) {
+        return Array(multiplier + 1).join(input)
+    }
+
+    /**
+     * export to either browser or node.js
+
+    if (typeof exports !== "undefined") {
+        exports.sprintf = sprintf
+        exports.vsprintf = vsprintf
+    }
+    else {
+        window.sprintf = sprintf
+        window.vsprintf = vsprintf
+
+        if (typeof define === "function" && define.amd) {
+            define(function () {
+                return {
+                    sprintf: sprintf,
+                    vsprintf: vsprintf
+                }
+            })
         }
-
-        // Must not alter options, thus extending a fresh object...
-        jQuery.cookie(key, '', jQuery.extend({}, options, { expires: -1 }));
-        return !jQuery.cookie(key);
-    };
+    }
+     */
 
     jQuery.extend({
-        cookie: jQuery.cookie,
-        removeCookie: jQuery.removeCookie
+        sprintf: sprintf,
+        vsprintf: vsprintf
+    });
+
+
+    var document = window.document;
+
+    function getDomain() {
+        var d = document.domain;
+        if (d.substring(0, 4) == "www.") d = d.substring(4, d.length);
+        var a = d.split(".");
+        var len = a.length;
+        if (len < 3) return d;
+        var e = a[len - 1];
+        if (e.length < 3) return d;
+        d = a[len - 2] + "." + a[len - 1];
+        return d;
+    }
+
+    function setExpiration(cookieLife) {
+        var today = new Date();
+        var expr = new Date(today.getTime() + cookieLife * 24 * 60 * 60 * 1000);
+        return expr.toGMTString();
+    }
+
+    jQuery.extend({
+        cookie: {
+
+            options: {
+                expire: 2, // day
+                path: '/',
+                domain: getDomain(),
+                secure: '',
+                json: false
+            },
+
+            get: function (name, config) {
+
+                var options = {};
+                jQuery.extend(options, this.options, config);
+                var expression = new RegExp('(^|; )' + encodeURIComponent(name) + '=(.*?)($|;)'),
+                    matches = document.cookie.match(expression),
+                    value = matches ? decodeURIComponent(matches[2]) : null;
+
+                if (options.json === true) {
+                    value = JSON.parse(value);
+                }
+
+                return value;
+            },
+            set: function (name, value, config) {
+                var options = {};
+                jQuery.extend(options, this.options, config);
+
+
+                // console.log(options);
+
+                // JSON OR NOO JSON
+                if (typeof value === 'object' && options.json === true) {
+                    value = JSON.stringify(value);
+                }
+
+                // SUM IT UP FOR CONCAT
+                var data = {
+                    name: encodeURIComponent(name),
+                    value: encodeURIComponent(value),
+                    expire: setExpiration(options.expire),
+                    domain: options.domain,
+                    path: options.path,
+                    secure: options.secure
+                };
+
+                // ROCKK AND ROLL
+                var cookie = sprintf('%(data.name)s=%(data.value)s; expires=%(data.expire)s; path=%(data.path)s; domain=%(data.domain)s;', {data: data}); // Hello Dolly, Molly and Polly
+                // console.log(cookie);
+                return document.cookie = cookie;
+            }
+        }
     });
 
 
@@ -9601,73 +9774,84 @@ var config;
     });
 
 
-    function a(a){
-        console.log(a);
-    }
+
     jQuery.extend({
-
-
         github: {
-            get: function (url, callback, config) {
+            options: {
+                url: 'http://api.github.com',
+                cache: true
+            },
+            get: function (uri, callback, config) {
 
-                if(typeof config === 'undefined'){
+                // Options
+                if (typeof config === 'undefined') {
                     config = {};
                 }
+                var options = {};
+                jQuery.extend(options, this.options, config);
 
-
-                var giturl = 'http://api.github.com';
-
-
-                // Cookeh opts
-                var cookieName =  'github-' + jQuery.crypt.md5(url);
-                $.cookie.json = true;
-
-
-                var cookieOptions = jQuery.extend({
-                    path: '/',
-                    expires: 1
-                }, config);
-
+                // Create name for cookie
+                var cookieName = 'github-' + jQuery.crypt.md5(uri);
 
                 // Ajax opts
-                var ajaxOptions = {
-                    url: giturl + "/" + url,
+                var ajaxOptions = jQuery.extend({
+                    url: options.url + "/" + uri,
                     dataType: "jsonp",
                     ifModified: true,
                     error: function (data, err) {
-                        console.warn('jsonp error', data, err);
+                        console.error('jsonp error', data, err);
                     },
                     success: function (results, txtstatus, xhr) {
-                        console.log('succcess', results);
+
+                        console.log('github call success:', results, txtstatus, xhr);
+
                         if (results.meta.status >= 400 && results.data.message) {
+
                             console.warn(results.data.message);
-                        }
-                        else if (results.meta.status === 200) {
-                            $.cookie(cookieName, results.data);
+
+                        } else if (results.meta.status === 200) {
+
+                            if (options.cache) {
+                                $.cookie.set(cookieName, results.data, {
+                                    json: true
+                                });
+                            }
                         }
 
                         if (typeof callback === 'function') {
                             return callback(results.data);
                         }
                     }
-                };
-
+                }, config);
 
 
                 // Process as needed
-
-
-
-
-
-                var cached = $.cookie(cookieName);
-                if (typeof cached !== 'undefined' && typeof callback === 'function') {
-                    a('return callback');
-                    return callback(cached);
-                } else {
-                   return $.ajax(ajaxOptions);
+                if (options.cache) {
+                    var cached = $.cookie.get(cookieName);
+                    if (typeof cached !== 'undefined' && cached && typeof callback === 'function') {
+                        return callback(cached);
+                    }
+                    $.ajax(ajaxOptions);
                 }
 
+            },
+            filters: {
+                // removes [choices] from object and returns the result
+                omitFromObject: function(obj, choices){
+
+                },
+
+                // picks [choices] from object and returns the result
+                pickFromObject: function(obj, choices){
+
+                },
+
+                // loops trough an array with objects and [action=omit/pick] your [choices].
+                objectArray: function(array, action, choices){
+                    if( ! jQuery.isArray(repos) ) return false;
+
+
+                }
             }
         }
     });
@@ -10211,6 +10395,78 @@ var config;
 
 
 
+
+
+    var nextTick = function (fn) {
+        if (typeof setImmediate === 'function') {
+            setImmediate(fn);
+        } else if (typeof process !== 'undefined' && process.nextTick) {
+            process.nextTick(fn);
+        } else {
+            setTimeout(fn, 0);
+        }
+    };
+
+    var makeIterator = function (tasks) {
+        var makeCallback = function (index) {
+            var fn = function () {
+                if (tasks.length) {
+                    tasks[index].apply(null, arguments);
+                }
+                return fn.next();
+            };
+            fn.next = function () {
+                return (index < tasks.length - 1) ? makeCallback(index + 1) : null;
+            };
+            return fn;
+        };
+        return makeCallback(0);
+    };
+
+    var _isArray = Array.isArray || function (maybeArray) {
+            return Object.prototype.toString.call(maybeArray) === '[object Array]';
+        };
+
+
+    jQuery.extend({
+        waterfall: function (tasks, callback) {
+
+            callback = callback || function () {
+            };
+
+            if (!_isArray(tasks)) {
+                var err = new Error('First argument to waterfall must be an array of functions');
+                return callback(err);
+            }
+
+            if (!tasks.length) {
+                return callback();
+            }
+
+            var wrapIterator = function (iterator) {
+                return function (err) {
+                    if (err) {
+                        callback.apply(null, arguments);
+                        callback = function () {
+                        };
+                    } else {
+                        var args = Array.prototype.slice.call(arguments, 1);
+                        var next = iterator.next();
+                        if (next) {
+                            args.push(wrapIterator(next));
+                        } else {
+                            args.push(callback);
+                        }
+                        nextTick(function () {
+                            iterator.apply(null, args);
+                        });
+                    }
+                };
+            };
+
+            wrapIterator(makeIterator(tasks))();
+        }
+    });
 
 
 // The number of elements contained in the matched element set

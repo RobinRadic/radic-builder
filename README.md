@@ -1,4 +1,4 @@
-Custom Jquery Build
+Custom Jquery+LoDash+Whatever Build
 ===================
 
 #### Purpose:
@@ -9,11 +9,11 @@ Custom Jquery Build
 - Add some features by extending jQuery
 
 #### Current modules:
-- cookie (created by @carhartl, slightly adjusted to integrate properly)
+- cookie
 - crypt
 - etag
 - github
-- widgets (created by jquery-ui, using this for all DOM manipulating plugins i create. Widgets.js did not have dependencies so i couldnt resist leaving it out)
+- widgets (created by jquery-ui)
 
 #### Small example:
 ```javascript
