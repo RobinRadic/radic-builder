@@ -1,16 +1,3 @@
-<link href="widgets/github-profile.css" rel="stylesheet" />
-<div id="github-profile"></div>
-
-<script src="widgets/github-profile.js"></script>
-<script>
-    $(function(){
-        $('#github-profile').githubProfile({
-            username: 'RobinRadic'
-        });
-    })
-</script>
-
-
 <div id="github-widget" data-username="piotrl" class="gh-profile-widget">
 
     <div class="profile">

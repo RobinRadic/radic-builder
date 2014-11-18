@@ -25,7 +25,7 @@
  http://radic.mit-license.org/
  http://robinradic.github.io
  http://radic.nl
-
+ https://github.com/Benvie/fat-grabby-hands
  ******************************************************************************/
 
 (function (factory) {
@@ -48,7 +48,6 @@
     $.widget('radic.githubProfile', {
         version: '0.0.1',
 
-
         options: {
             username: '',
             sortBy: 'stars', // possible: 'stars', 'updateTime'
@@ -56,71 +55,147 @@
             maxRepos: 5
         },
 
-
         _create: function () {
-            if (typeof $.github === 'undefined') {
-                return console.error('jQuery.github is not found. This widget wont work without it');
-            }
-            //this._init();
-        },
-
-        _init: function () {
             var self = this;
-            var username = this.options.username;
-            this.data = {};
-
-            $.waterfall([
-                function(done){
-                    info('getting user');
-                    $.github.get('users/' + username, function (userData) {
-                        self.data.user = userData;
-                        ok('got user, falling to next');
-                        done(null);
-                    });
-                },
-                function(done){
-                    info('getting user repos');
-
-                    var filter = function(data){
-                        return  $.github.filters.objectArray(data, 'pick', ['html_url', 'description', 'name']) ;
-                    };
-
-                    $.github.get('users/' + username + '/repos?page=1&per_page=40', function (repoData) {
-                        self.data.repos = repoData;
-
-                        ok('got user, falling to next');
-                        done(null);
-
-                    }, { resultFilter: filter });
-                }
-            ], function(){
-                ok('waterfall done, result:');
-                showcode(self.data);
+            self._fetchData(function(data){
+                self._render(data);
             });
+        },
+
+        /* The _init method is called after _create when the widget is first applied to its elements.
+        The _init method is also called every time thereafter when the widget is invoked with no arguments or with options.
+        This method is the recommended place for setting up more complex initialization and is a good way to support reset functionality for the widget if this is required.
+        It's common for widgets to not implement an _init method. */
+        _init: function (callback) {
+
 
         },
 
-        _render: {
-            base: function () {
-                this.element.addClass('gh-profile-widget');
+        _render: function(apiData){
+            var self = this;
+            var options = this.options;
+            var $root = this.element;
 
 
-            },
-            profile: function () {
 
-            },
-            repos: function () {
+            var profile = function () {
+                var $profile = document.createElement('div'),
+                    $name = document.createElement('a'),
+                    $avatar = document.createElement('img'),
+                    $stats = document.createElement('div'),
+                    $followContainer = document.createElement('div'),
+                    $followButton = document.createElement('a'),
+                    $followers = document.createElement('span');
 
-            }
+                $name.href = apiData.user.html_url;
+                $name.className = 'name';
+                $name.appendChild(document.createTextNode(apiData.user.name));
+
+                $avatar.src = apiData.user.avatar_url;
+                $avatar.className = 'avatar';
+
+                $followButton.href = $name.href;
+                $followButton.className = 'follow-button';
+                $followButton.innerHTML = 'Follow @' + this.user;
+
+                $followers.href = apiData.user.followers_url;
+                $followers.className = 'followers';
+                $followers.innerHTML = apiData.user.followers;
+
+                $followContainer.className = 'followMe';
+                $followContainer.appendChild($followButton);
+                $followContainer.appendChild($followers);
+
+                $profile.appendChild($avatar);
+                $profile.appendChild($name);
+                $profile.appendChild($followContainer);
+                $profile.appendChild($stats);
+                $profile.classList.add('profile');
+
+                return $($profile);
+            };
+
+            var base = function () {
+                self._destroy();
+                self.element.addClass('gh-profile-widget');
+
+                var $root = self.element[0];
+
+                // clear root template element to prepare space for widget
+                while ($root.hasChildNodes()) {
+                    $root.removeChild($root.firstChild);
+                }
+
+                //
+                // API doesen't return errors, try to built widget
+                var $profile = profile.bind(this)();
+
+                /*
+                 this.getTopLanguages((function () {
+                 var $langs = this.render.langs.bind(this)();
+                 $profile.appendChild($langs);
+                 }).bind(this));
+                 */
+                $root.appendChild($profile[0]);
+
+                if (options.maxRepos > 0) {
+                    var $repos = this.repos.bind(this)(options.sortBy, options.maxRepos),
+                        $reposHeader = document.createElement('span');
+                    $reposHeader.className = 'header';
+                    $reposHeader.appendChild(document.createTextNode(options.reposHeaderText + ' repositories'));
+
+                    $repos.insertBefore($reposHeader, $repos.firstChild);
+                    $root.appendChild($repos);
+                }
+            };
+
+
+            var repos = function () {
+                var reposData = apiData.repos;
+
+                var $reposList = document.createElement('div');
+
+                reposData.sort(function (a, b) {
+                    // sorted by last commit
+                    if (sortyBy == 'stars') {
+                        return b.stargazers_count - a.stargazers_count;
+                    } else {
+                        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+                    }
+                });
+
+                for (var i = 0; i < options.maxRepos && reposData[i]; i++) {
+                    var updated = new Date(reposData[i].updated_at);
+                    var $repoLink = document.createElement('a');
+
+                    $repoLink.href = reposData[i].html_url;
+                    $repoLink.title = reposData[i].description;
+                    $repoLink.innerHTML += '<span class="repo-name">' + reposData[i].name + '</span>';
+                    $repoLink.innerHTML += '<span class="updated">Updated: ' + updated.toLocaleDateString() + '</span>';
+                    $repoLink.innerHTML += '<span class="star">' + reposData[i].stargazers_count + '</span>';
+
+                    $reposList.appendChild($repoLink);
+                }
+
+                $reposList.className = 'repos';
+                return $reposList;
+            };
+
+            /*return {
+                base: base,
+                profile: profile,
+                repos: repos
+            };*/
+
+            base();
         },
-
 
         _getCreateEventData: function () {
 
         },
 
         _destroy: function () {
-
+            this.element.html('');
         },
 
 
@@ -146,7 +221,33 @@
                     .attr("aria-disabled", value);
             }
             this._super(key, value);
+        },
+
+
+
+        _fetchData: function(callback){
+            var self = this;
+            var username = this.options.username;
+
+            $.waterfall([
+                function(done){
+                    $.github.users(username, function(userData){
+                        done(null, userData);
+                    });
+                },
+                function(userData, done){
+                    $.github.users.repos(username, null, 1, 100, function(repoData){
+                        done(null, { user: userData, repos: repoData });
+                    })
+                }
+            ], function(err, result){
+                if(typeof callback === 'function') callback(result);
+            });
         }
+
+
+
+
     });
 
 }));

@@ -8,3 +8,12 @@ lodash:
   include: omit,pick,values,keys,where
   exports: none
   dest: lodash/lo.js
+
+
+
+
+
+output:
+  modules:
+    jquery: core, selector, events, ajaxx
+    radic: widgets, waterfall, lodash

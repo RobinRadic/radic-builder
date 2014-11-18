@@ -141,6 +141,14 @@ module.exports = function (grunt) {
                 }
             }
         },
+        shell: {
+            lodash_collections: {
+                command: 'lodash underscore include=omit,pick,values,keys,where,cloneDeep exports=none -o lodash/lo_collections.js'
+            },
+            lodash_template: {
+                command: 'lodash underscore include=template exports=none -o lodash/lo_template.js'
+            }
+        },
         watch: {
             js: {
                 files: '{src,widgets}/**',
