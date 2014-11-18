@@ -5,8 +5,18 @@ define([
     "./callbacks",
     "./deferred",
     "./core/ready",
-    "./ajax",
-    "./event"
+    "./data",
+    "./queue",
+    "./queue/delay",
+    "./attributes",
+    "./event",
+    "./event/alias",
+
+
+
+    "./offset",
+    "./dimensions"
+
 ], function (jQuery) {
 
 

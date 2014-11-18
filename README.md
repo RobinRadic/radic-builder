@@ -3,17 +3,17 @@ Custom Jquery Build
 
 #### Purpose:
 
-- Personal project. Just playing around and learning some new stuff
+- **Personal project**. Just playing around and learning some new stuff
 - To better understand jQuery inner workings
 - To build a smaller sizes jQuery library, by removing all unneeded stuff for certain projjects
 - Add some features by extending jQuery
 
 #### Current modules:
-- cookie
+- cookie (created by @carhartl, slightly adjusted to integrate properly)
 - crypt
 - etag
 - github
-
+- widgets (created by jquery-ui, using this for all DOM manipulating plugins i create. Widgets.js did not have dependencies so i couldnt resist leaving it out)
 
 #### Small example:
 ```javascript
