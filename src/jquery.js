@@ -38,6 +38,8 @@ define([
 	"./waterfall",
 	"./sprintf",
 	"./lodash",
+	"./lotemplates",
+	//"./utemplates",
 
 	"./deprecated",
 	"./exports/amd",

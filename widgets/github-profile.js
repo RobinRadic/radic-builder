@@ -57,25 +57,109 @@
 
         _create: function () {
             var self = this;
-            self._fetchData(function(data){
-                self._render(data);
+            self._getData(function (data) {
+                console.log(data);
+                var templateHTML = $(data.tpl).html();
+                var template = jQuery.template(templateHTML);
+                var $widget = $(template(data));
+                self.element.append(template(data))
             });
         },
 
+// _getData, _getDataTopLanguages, _getDataTopRepos, _combineData
+
+        _fetchData: function (callback) {
+            var self = this;
+            var username = this.options.username;
+
+            $.waterfall([
+                function (done) {
+                    $.github.user(username, function (userData) {
+                        done(null, userData);
+                    });
+                },
+                function (userData, done) {
+                    $.github.users.repos(username, null, 1, 100, function (repoData) {
+                        done(null, {user: userData, repos: repoData});
+                    })
+                },
+                function (apiData, done) {
+                    $.get('widgets/github-profile.tpl', function (templateData) {
+                        console.log(templateData, apiData);
+                        apiData.tpl = templateData;
+                        done(null, apiData);
+
+                    })
+                }
+            ], function (err, result) {
+                if (typeof callback === 'function') callback(result);
+            });
+        },
+
+        _sortLanguages: function (repos) {
+            var topLangs = [];
+            for (var k in this.langs) {
+                topLangs.push([k, this.langs[k]]);
+            }
+
+            topLangs.sort(function (a, b) {
+                return b[1] - a[1];
+            });
+
+        },
+
+        _sortRepositories: function (reposData) {
+            var self = this;
+            reposData.sort(function (a, b) {
+                // sorted by last commit
+                if (self.options.sortBy == 'stars') {
+                    return b.stargazers_count - a.stargazers_count;
+                } else {
+                    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+                }
+            });
+
+            return reposData;
+        },
+
+        _getData: function (callback) {
+            var self = this;
+            var combined = {};
+            $.waterfall([
+                function (done) {
+                    self._fetchData(function(data){
+                        // data.user data.tpl data.repos
+                        done(null, data)
+                    });
+                },
+                function (data, done) {
+                    data.topRepos = self._sortRepositories(data.repos);
+                    done(null, data)
+                },
+                function (data, done) {
+                    data.topLanguages = self._sortLanguages(data.repos);
+                    done(null, data)
+                }
+            ], function (err, result) {
+                callback(result);
+            })
+        },
+
+
         /* The _init method is called after _create when the widget is first applied to its elements.
-        The _init method is also called every time thereafter when the widget is invoked with no arguments or with options.
-        This method is the recommended place for setting up more complex initialization and is a good way to support reset functionality for the widget if this is required.
-        It's common for widgets to not implement an _init method. */
+         The _init method is also called every time thereafter when the widget is invoked with no arguments or with options.
+         This method is the recommended place for setting up more complex initialization and is a good way to support reset functionality for the widget if this is required.
+         It's common for widgets to not implement an _init method. */
         _init: function (callback) {
 
 
         },
 
-        _render: function(apiData){
+
+        _render2: function (apiData) {
             var self = this;
             var options = this.options;
             var $root = this.element;
-
 
 
             var profile = function () {
@@ -182,10 +266,10 @@
             };
 
             /*return {
-                base: base,
-                profile: profile,
-                repos: repos
-            };*/
+             base: base,
+             profile: profile,
+             repos: repos
+             };*/
 
             base();
         },
@@ -222,30 +306,6 @@
             }
             this._super(key, value);
         },
-
-
-
-        _fetchData: function(callback){
-            var self = this;
-            var username = this.options.username;
-
-            $.waterfall([
-                function(done){
-                    $.github.users(username, function(userData){
-                        done(null, userData);
-                    });
-                },
-                function(userData, done){
-                    $.github.users.repos(username, null, 1, 100, function(repoData){
-                        done(null, { user: userData, repos: repoData });
-                    })
-                }
-            ], function(err, result){
-                if(typeof callback === 'function') callback(result);
-            });
-        }
-
-
 
 
     });

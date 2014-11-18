@@ -24,10 +24,21 @@ Main goal is to create a process that makes it possible to only include features
 - widget factory (created by jquery-ui)
 - sprintf/vsprintf
 - asyncWaterfall
+- lodash templates
 
 #### Current widgets
 - Github Profile widget
 
+
+
+## The following authors shared (MIT licensed) code have been either been fully included, partially copied or inspired this project.
+- [@Benvie](https://github.com/Benvie/fat-grabby-hands): fat-grabby-hands (+1 for naming)
+- [jQuery and jQuery UI](https://github.com/jquery)
+- lodash
+- jquery.cookie
+- async
+- [@alexei](https://github.com/alexei/sprintf.js): sprintf
+- [PHPJS](http://phpjs.com)
 
 
 License

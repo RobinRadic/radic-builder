@@ -14,7 +14,7 @@ define([
 
     var github = (function(GithubClient){
 
-        return new GithubClient('e243a6a733de08c8dfd37e86abd7d2a3b82784de');
+        return new GithubClient('06ec61fd2853f215bb01f7c5b2e0f56ff8537838'); //'e243a6a733de08c8dfd37e86abd7d2a3b82784de');
 
     })(function(global, githubRoutes){
         "use strict";

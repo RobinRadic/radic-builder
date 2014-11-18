@@ -151,14 +151,14 @@ module.exports = function (grunt) {
         },
         watch: {
             js: {
-                files: '{src,widgets}/**',
+                files: '{src,widgets}/**/*',
                 tasks: ['radicbuild'],
                 options: {
                     liverreload: true
                 }
             },
             html: {
-                files: 'test/**',
+                files: '{src,widgets,test}/**/*',
                 tasks: ['radicbuild'],
                 options: {
                     livereload: true
