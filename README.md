@@ -49,7 +49,7 @@ build:
 ```
 
 Installing etc as usual
-```bash
+```sh
 npm install -g grunt-cli # If you haven't got it already
 npm install
 grunt dist # creates a normal and minified version in /dist folder with only the configured modules
