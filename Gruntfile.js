@@ -11,6 +11,20 @@ module.exports = function (grunt) {
     var config = grunt.file.readYAML('_config.yml');
 
 
+    function getCustomBuild() {
+        var custombuild = 'build:*';
+
+        function toBuildStr(str) {
+            return ':+' + str.replace(/,\s/g, ':+')
+        }
+
+        var jq = toBuildStr(config.build.modules.jquery);
+        var radic = toBuildStr(config.build.modules.radic);
+        var command = custombuild + jq + radic;
+        grunt.log.writeln(command);
+        return 'grunt ' + command;
+    }
+
     // Project configuration.
     grunt.initConfig({
         config: config,
@@ -35,40 +49,40 @@ module.exports = function (grunt) {
                     ]
                 }
             }/*
-            test: {
-                options: {
-                    port: 9001,
-                    base: [
-                        '.tmp',
-                        'test',
-                        '<%= config.app %>'
-                    ]
-                }
-            },
-            dist: {
-                options: {
-                    open: true,
-                    base: '<%= config.dist %>',
-                    livereload: false
-                }
-            }*/
+             test: {
+             options: {
+             port: 9001,
+             base: [
+             '.tmp',
+             'test',
+             '<%= config.app %>'
+             ]
+             }
+             },
+             dist: {
+             options: {
+             open: true,
+             base: '<%= config.dist %>',
+             livereload: false
+             }
+             }*/
         },
 
         build: {
             all: {
                 src: '.tmp/',
 
-                dest: "dist/jquery.js",
+                dest: "dist/<%= config.build.filename %>.js",
                 minimum: [
                     "core",
                     "selector"
                 ],
                 // Exclude specified modules if the module matching the key is removed
                 removeWith: {
-                    ajax: [ "manipulation/_evalUrl", "event/ajax" ],
-                    callbacks: [ "deferred" ],
-                    css: [ "effects", "dimensions", "offset" ],
-                    sizzle: [ "css/hiddenVisibleSelectors", "effects/animatedSelector" ]
+                    ajax: ["manipulation/_evalUrl", "event/ajax"],
+                    callbacks: ["deferred"],
+                    css: ["effects", "dimensions", "offset"],
+                    sizzle: ["css/hiddenVisibleSelectors", "effects/animatedSelector"]
                 }
             }
         },
@@ -108,7 +122,7 @@ module.exports = function (grunt) {
                 files: [{
                     src: 'dist/**/*',
                     dest: 'testing/'
-                },{
+                }, {
                     expand: true,
                     cwd: 'node_modules/nodeunit/examples/browser',
                     src: '*.js',
@@ -127,7 +141,7 @@ module.exports = function (grunt) {
             }
 
         },
-        preprocess : {
+        preprocess: {
             options: {
                 context: {
                     DEBUG: true
@@ -149,7 +163,7 @@ module.exports = function (grunt) {
             },
             dist: {
                 files: {
-                    'dist/jquery.custom.min.js': ['dist/jquery.js']
+                    'dist/<%= config.build.filename %>.min.js': ['dist/<%= config.build.filename %>.js']
                 }
             }
         },
@@ -162,6 +176,9 @@ module.exports = function (grunt) {
             },
             test: {
                 command: 'nodeunit testing/*.js'
+            },
+            build: {
+                command: getCustomBuild
             }
         },
         watch: {
@@ -193,14 +210,29 @@ module.exports = function (grunt) {
         }
     });
 
-    grunt.loadTasks( "grunt-jquery/" + jv );
+    grunt.loadTasks("grunt-jquery/" + jv);
+
+
 
 
     // Default task.
-   // grunt.registerTask('updated-jquery', ['copy:jquery2src']);
+    // grunt.registerTask('updated-jquery', ['copy:jquery2src']);
 
 
-    var modulesToBuild =  "custom"; //:-github"; //'build:*:+core:+github';
+    var modulesToBuild = "custom:*:+core:+github"; //:-github"; //'build:*:+core:+github';
+
+
+    grunt.registerTask('dist', function () {
+        grunt.task.run([
+            'clean:tmp',
+            'clean:dist',
+            'copy:src2build',
+            'shell:build',
+            'clean:tmp',
+            'uglify:dist'
+        ]);
+    })
+
 
     grunt.registerTask('radicbuild', [
         'clean:tmp',
@@ -211,7 +243,7 @@ module.exports = function (grunt) {
         'preprocess:html',
         'clean:tmp',
         'copy:test2dist',
-     //   'uglify:dist'
+        //   'uglify:dist'
     ]);
 
 
@@ -219,7 +251,7 @@ module.exports = function (grunt) {
         'clean:testing',
         'copy:dist2testing',
         'shell:test'
-        ]);
+    ]);
 
     grunt.registerTask('serve', function (target) {
         if (target === 'dist') {
@@ -227,7 +259,7 @@ module.exports = function (grunt) {
         }
         grunt.task.run([
             'radicbuild',
-           // 'concurrent:server',
+            // 'concurrent:server',
 
             'connect:livereload',
             'watch'
