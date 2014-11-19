@@ -15,6 +15,12 @@ Custom JS Library builder
 
 Main goal is to create a process that makes it possible to only include features that are usefull for any project so the result will be as small as possible.
 
+
+#### Todo
+- Make it less opinionated, more configurable and more usefull for other developer
+- Need to clean up folders, code, my desk... and probably my room aswell
+
+
 #### Custom modules:
 - async (each/waterfall)
 - cookie
@@ -46,6 +52,24 @@ build:
   modules:
     jquery: core, selector
     radic: widgets, async, github, sprintf
+
+
+
+# Some file sizes as example: (remember, gzip/deflate makes it even smaller)
+# default jquery-1.11.1.min.js = 93kb
+#-------------------------------
+#    jquery: core
+#    radic: widgets
+#    size: 12.8kb / 4.0kb (minified)
+#-------------------------------
+#    jquery: core
+#    radic: github
+#    size: 31kb / 14kb (minified)
+#-------------------------------
+#    jquery: core, selector, traversing, event, ajax
+#    radic: github, async, lodash, lotemplates
+#    size: 236kb / 64kb (minified)
+
 ```
 
 Installing etc as usual
@@ -55,6 +79,10 @@ $ npm install
 $ grunt dist # creates a normal and minified version in /dist folder with only the configured modules
 $ grunt radicbuild # Creates a version with all modules (jquery + radic). Run uglify:dist afterwards for minification
 ```
+
+#### File sizes
+Highly depends on what modules you use. Remember, some modules depend on each other and will auto-include themselfs.
+
 
 #### The following authors shared (MIT licensed) code have been either been fully included, partially copied or inspired this project.
 - [@Benvie](https://github.com/Benvie/fat-grabby-hands): fat-grabby-hands (+1 for naming)

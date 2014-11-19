@@ -15,6 +15,8 @@ module.exports = function (grunt) {
         var custombuild = 'build:*';
 
         function toBuildStr(str) {
+            if(str === null) return '';
+
             return ':+' + str.replace(/,\s/g, ':+')
         }
 

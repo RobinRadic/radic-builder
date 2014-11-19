@@ -12,6 +12,23 @@ dest: dist
 build:
   filename: jquery.custom
   modules:
-    jquery: core, selector
-    radic: widgets, async, github, sprintf
+    jquery: core, selector, traversing, event, ajax
+    radic: github, async, lodash, lotemplates
+
+
+# Some file sizes as example: (remember, gzip/deflate makes it even smaller)
+# default jquery-1.11.1.min.js = 93kb
+#-------------------------------
+#    jquery: core
+#    radic: widgets
+#    size: 12.8kb / 4.0kb (minified)
+#-------------------------------
+#    jquery: core
+#    radic: github
+#    size: 31kb / 14kb (minified)
+#-------------------------------
+#    jquery: core, selector, traversing, event, ajax
+#    radic: github, async, lodash, lotemplates
+#    size: 236kb / 64kb (minified)
+
 
