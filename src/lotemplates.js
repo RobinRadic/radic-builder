@@ -1,12 +1,6 @@
 define([
     "./core",
-    "./selector",
-    "./traversing",
-    "./callbacks",
-    "./deferred",
-    "./core/ready",
-    "./ajax",
-    "./event"
+    "./selector"
 ], function( jQuery ) {
 
     /**

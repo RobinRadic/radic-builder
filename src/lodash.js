@@ -1,15 +1,6 @@
 define([
     "./core",
-    "./selector",
-    "./traversing",
-    "./callbacks",
-    "./deferred",
-    "./core/ready",
-    "./ajax",
-    "./event",
-    "./cookie",
-    "./crypt",
-    "./etag"
+    "./selector"
 ], function (jQuery) {
 
     /**

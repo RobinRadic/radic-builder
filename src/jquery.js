@@ -30,11 +30,11 @@ define([
 	"./offset",
 	"./dimensions",
 
+	"./widgets",
 	"./cookie",
 	"./crypt",
 	"./etag",
 	"./github",
-	"./widgets",
 	"./async.waterfall",
 	"./async.each",
 	"./sprintf",
