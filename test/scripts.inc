@@ -1,7 +1,5 @@
 
 
-<script src="jquery.js"></script>
-
 
 
 <script>

@@ -1,15 +1,5 @@
 define([
-    "./core",
-    "./selector",
-    "./traversing",
-    "./callbacks",
-    "./deferred",
-    "./core/ready",
-    "./ajax",
-    "./event",
-    "./cookie",
-    "./crypt",
-    "./lodash"
+    "./core"
 ], function (jQuery) {
 
     var github = (function(GithubClient){
@@ -458,10 +448,7 @@ define([
 
     github.token = 'asdf';
 
-    jQuery.extend({
-        github: github
-
-    });
+    jQuery.github = github;
 
     return jQuery;
 });

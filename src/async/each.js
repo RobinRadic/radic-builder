@@ -1,15 +1,10 @@
 define([
-    "./core",
-
+    "../core",
     "./var/only_once",
     "./var/_each",
-
-
-    "./selector"
 ], function (jQuery, only_once, _each) {
 
-
-    return function (arr, iterator, callback) {
+    var each = function (arr, iterator, callback) {
         callback = callback || function () {
         };
 
@@ -35,4 +30,6 @@ define([
         }
     };
 
+ //   jQuery.async = {};
+    jQuery.async.each = each;
 });

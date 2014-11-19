@@ -159,6 +159,9 @@ module.exports = function (grunt) {
             },
             lodash_template: {
                 command: 'lodash underscore include=template exports=none -o lodash/lo_template.js'
+            },
+            test: {
+                command: 'nodeunit testing/*.js'
             }
         },
         watch: {
@@ -215,6 +218,7 @@ module.exports = function (grunt) {
     grunt.registerTask('test', [
         'clean:testing',
         'copy:dist2testing',
+        'shell:test'
         ]);
 
     grunt.registerTask('serve', function (target) {

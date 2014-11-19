@@ -1,19 +1,19 @@
 define([
-    "./core",
-
+    "../core",
     "./var/iterator",
-    "./var/nextTick",
-
-
-    "./selector",
+    "./var/nextTick"
 ], function (jQuery, makeIterator, nextTick) {
 
 
-    return function (tasks, callback) {
+    var _isArray = Array.isArray || function (maybeArray) {
+            return Object.prototype.toString.call(maybeArray) === '[object Array]';
+        };
+
+    var waterfall = function (tasks, callback) {
 
         callback = callback || function () { };
 
-        if (!jQuery.isArray(tasks)) {
+        if (_isArray(tasks)) {
             var err = new Error('First argument to waterfall must be an array of functions');
             return callback(err);
         }
@@ -45,6 +45,8 @@ define([
 
         wrapIterator(makeIterator(tasks))();
     };
+
+    jQuery.async.waterfall = waterfall;
 
 
 });

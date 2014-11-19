@@ -9,7 +9,7 @@
  * Released under the MIT license
  * http://jquery.org/license
  *
- * Date: 2014-11-18T21:28Z
+ * Date: 2014-11-19T12:44Z
  */
 
 (function( global, factory ) {
@@ -9123,544 +9123,580 @@ jQuery.each( { Height: "height", Width: "width" }, function( name, type ) {
 });
 
 
-
-    var widget_uuid = 0,
-        widget_slice = Array.prototype.slice;
-
-    jQuery.cleanData = (function( orig ) {
-        return function( elems ) {
-            var events, elem, i;
-            for ( i = 0; (elem = elems[i]) != null; i++ ) {
-                try {
-
-                    // Only trigger remove when necessary to save time
-                    events = jQuery._data( elem, "events" );
-                    if ( events && events.remove ) {
-                        jQuery( elem ).triggerHandler( "remove" );
-                    }
-
-                    // http://bugs.jquery.com/ticket/8235
-                } catch ( e ) {}
-            }
-            orig( elems );
-        };
-    })( jQuery.cleanData );
-
-    jQuery.widget = function( name, base, prototype ) {
-        var fullName, existingConstructor, constructor, basePrototype,
-        // proxiedPrototype allows the provided prototype to remain unmodified
-        // so that it can be used as a mixin for multiple widgets (#8876)
-            proxiedPrototype = {},
-            namespace = name.split( "." )[ 0 ];
-
-        name = name.split( "." )[ 1 ];
-        fullName = namespace + "-" + name;
-
-        if ( !prototype ) {
-            prototype = base;
-            base = jQuery.Widget;
+    jQuery.async = {};
+var only_once = function (fn) {
+        var called = false;
+        return function () {
+            if (called) throw new Error("Callback was already called.");
+            called = true;
+            fn.apply(window, arguments);
         }
+    }
 
-        // create selector for plugin
-        jQuery.expr[ ":" ][ fullName.toLowerCase() ] = function( elem ) {
-            return !!jQuery.data( elem, fullName );
+var _each = function(arr, iterator) {
+        if (arr.forEach) {
+            return arr.forEach(iterator);
+        }
+        for (var i = 0; i < arr.length; i += 1) {
+            iterator(arr[i], i, arr);
+        }
+    }
+
+
+
+    var each = function (arr, iterator, callback) {
+        callback = callback || function () {
         };
 
-        jQuery[ namespace ] = jQuery[ namespace ] || {};
-        existingConstructor = jQuery[ namespace ][ name ];
-        constructor = jQuery[ namespace ][ name ] = function( options, element ) {
-            // allow instantiation without "new" keyword
-            if ( !this._createWidget ) {
-                return new constructor( options, element );
-            }
-
-            // allow instantiation without initializing for simple inheritance
-            // must use "new" keyword (the code above always passes args)
-            if ( arguments.length ) {
-                this._createWidget( options, element );
-            }
-        };
-        // extend with the existing constructor to carry over any static properties
-        jQuery.extend( constructor, existingConstructor, {
-            version: prototype.version,
-            // copy the object used to create the prototype in case we need to
-            // redefine the widget later
-            _proto: jQuery.extend( {}, prototype ),
-            // track widgets that inherit from this widget in case this widget is
-            // redefined after a widget inherits from it
-            _childConstructors: []
+        if (!arr.length) {
+            return callback();
+        }
+        var completed = 0;
+        _each(arr, function (x) {
+            iterator(x, only_once(done));
         });
-
-        basePrototype = new base();
-        // we need to make the options hash a property directly on the new instance
-        // otherwise we'll modify the options hash on the prototype that we're
-        // inheriting from
-        basePrototype.options = jQuery.widget.extend( {}, basePrototype.options );
-        jQuery.each( prototype, function( prop, value ) {
-            if ( !jQuery.isFunction( value ) ) {
-                proxiedPrototype[ prop ] = value;
-                return;
-            }
-            proxiedPrototype[ prop ] = (function() {
-                var _super = function() {
-                        return base.prototype[ prop ].apply( this, arguments );
-                    },
-                    _superApply = function( args ) {
-                        return base.prototype[ prop ].apply( this, args );
-                    };
-                return function() {
-                    var __super = this._super,
-                        __superApply = this._superApply,
-                        returnValue;
-
-                    this._super = _super;
-                    this._superApply = _superApply;
-
-                    returnValue = value.apply( this, arguments );
-
-                    this._super = __super;
-                    this._superApply = __superApply;
-
-                    return returnValue;
+        function done(err) {
+            if (err) {
+                callback(err);
+                callback = function () {
                 };
-            })();
-        });
-        constructor.prototype = jQuery.widget.extend( basePrototype, {
-            // TODO: remove support for widgetEventPrefix
-            // always use the name + a colon as the prefix, e.g., draggable:start
-            // don't prefix for widgets that aren't DOM-based
-            widgetEventPrefix: existingConstructor ? (basePrototype.widgetEventPrefix || name) : name
-        }, proxiedPrototype, {
-            constructor: constructor,
-            namespace: namespace,
-            widgetName: name,
-            widgetFullName: fullName
-        });
+            }
+            else {
+                completed += 1;
+                if (completed >= arr.length) {
+                    callback();
+                }
+            }
+        }
+    };
 
-        // If this widget is being redefined then we need to find all widgets that
-        // are inheriting from it and redefine all of them so that they inherit from
-        // the new version of this widget. We're essentially trying to replace one
-        // level in the prototype chain.
-        if ( existingConstructor ) {
-            jQuery.each( existingConstructor._childConstructors, function( i, child ) {
-                var childPrototype = child.prototype;
+ //   jQuery.async = {};
+    jQuery.async.each = each;
 
-                // redefine the child widget using the same prototype that was
-                // originally used, but inherit from the new version of the base
-                jQuery.widget( childPrototype.namespace + "." + childPrototype.widgetName, constructor, child._proto );
-            });
-            // remove the list of existing child constructors from the old constructor
-            // so the old child constructors can be garbage collected
-            delete existingConstructor._childConstructors;
+var iterator = function (tasks) {
+        var makeCallback = function (index) {
+            var fn = function () {
+                if (tasks.length) {
+                    tasks[index].apply(null, arguments);
+                }
+                return fn.next();
+            };
+            fn.next = function () {
+                return (index < tasks.length - 1) ? makeCallback(index + 1) : null;
+            };
+            return fn;
+        };
+        return makeCallback(0);
+    }
+
+var nextTick = function (fn) {
+        if (typeof setImmediate === 'function') {
+            setImmediate(fn);
+        } else if (typeof process !== 'undefined' && process.nextTick) {
+            process.nextTick(fn);
         } else {
-            base._childConstructors.push( constructor );
+            setTimeout(fn, 0);
         }
+    }
 
-        jQuery.widget.bridge( name, constructor );
 
-        return constructor;
-    };
 
-    jQuery.widget.extend = function( target ) {
-        var input = widget_slice.call( arguments, 1 ),
-            inputIndex = 0,
-            inputLength = input.length,
-            key,
-            value;
-        for ( ; inputIndex < inputLength; inputIndex++ ) {
-            for ( key in input[ inputIndex ] ) {
-                value = input[ inputIndex ][ key ];
-                if ( input[ inputIndex ].hasOwnProperty( key ) && value !== undefined ) {
-                    // Clone objects
-                    if ( jQuery.isPlainObject( value ) ) {
-                        target[ key ] = jQuery.isPlainObject( target[ key ] ) ?
-                            jQuery.widget.extend( {}, target[ key ], value ) :
-                            // Don't extend strings, arrays, etc. with objects
-                            jQuery.widget.extend( {}, value );
-                        // Copy everything else by reference
-                    } else {
-                        target[ key ] = value;
-                    }
-                }
-            }
-        }
-        return target;
-    };
 
-    jQuery.widget.bridge = function( name, object ) {
-        var fullName = object.prototype.widgetFullName || name;
-        jQuery.fn[ name ] = function( options ) {
-            var isMethodCall = typeof options === "string",
-                args = widget_slice.call( arguments, 1 ),
-                returnValue = this;
-
-            // allow multiple hashes to be passed on init
-            options = !isMethodCall && args.length ?
-                jQuery.widget.extend.apply( null, [ options ].concat(args) ) :
-                options;
-
-            if ( isMethodCall ) {
-                this.each(function() {
-                    var methodValue,
-                        instance = jQuery.data( this, fullName );
-                    if ( options === "instance" ) {
-                        returnValue = instance;
-                        return false;
-                    }
-                    if ( !instance ) {
-                        return jQuery.error( "cannot call methods on " + name + " prior to initialization; " +
-                        "attempted to call method '" + options + "'" );
-                    }
-                    if ( !jQuery.isFunction( instance[options] ) || options.charAt( 0 ) === "_" ) {
-                        return jQuery.error( "no such method '" + options + "' for " + name + " widget instance" );
-                    }
-                    methodValue = instance[ options ].apply( instance, args );
-                    if ( methodValue !== instance && methodValue !== undefined ) {
-                        returnValue = methodValue && methodValue.jquery ?
-                            returnValue.pushStack( methodValue.get() ) :
-                            methodValue;
-                        return false;
-                    }
-                });
-            } else {
-                this.each(function() {
-                    var instance = jQuery.data( this, fullName );
-                    if ( instance ) {
-                        instance.option( options || {} );
-                        if ( instance._init ) {
-                            instance._init();
-                        }
-                    } else {
-                        jQuery.data( this, fullName, new object( options, this ) );
-                    }
-                });
-            }
-
-            return returnValue;
+    var _isArray = Array.isArray || function (maybeArray) {
+            return Object.prototype.toString.call(maybeArray) === '[object Array]';
         };
+
+    var waterfall = function (tasks, callback) {
+
+        callback = callback || function () { };
+
+        if (_isArray(tasks)) {
+            var err = new Error('First argument to waterfall must be an array of functions');
+            return callback(err);
+        }
+
+        if (!tasks.length) {
+            return callback();
+        }
+
+        var wrapIterator = function (iterator) {
+            return function (err) {
+                if (err) {
+                    callback.apply(null, arguments);
+                    callback = function () {
+                    };
+                } else {
+                    var args = Array.prototype.slice.call(arguments, 1);
+                    var next = iterator.next();
+                    if (next) {
+                        args.push(wrapIterator(next));
+                    } else {
+                        args.push(callback);
+                    }
+                    nextTick(function () {
+                        iterator.apply(null, args);
+                    });
+                }
+            };
+        };
+
+        wrapIterator(makeIterator(tasks))();
     };
 
-    jQuery.Widget = function( /* options, element */ ) {};
-    jQuery.Widget._childConstructors = [];
+    jQuery.async.waterfall = waterfall;
 
-    jQuery.Widget.prototype = {
-        widgetName: "widget",
-        widgetEventPrefix: "",
-        defaultElement: "<div>",
-        options: {
-            disabled: false,
 
-            // callbacks
-            create: null
-        },
-        _createWidget: function( options, element ) {
-            element = jQuery( element || this.defaultElement || this )[ 0 ];
-            this.element = jQuery( element );
-            this.uuid = widget_uuid++;
-            this.eventNamespace = "." + this.widgetName + this.uuid;
 
-            this.bindings = jQuery();
-            this.hoverable = jQuery();
-            this.focusable = jQuery();
 
-            if ( element !== this ) {
-                jQuery.data( element, this.widgetFullName, this );
-                this._on( true, this.element, {
-                    remove: function( event ) {
-                        if ( event.target === element ) {
-                            this.destroy();
+
+
+    var github = (function(GithubClient){
+
+        return new GithubClient('06ec61fd2853f215bb01f7c5b2e0f56ff8537838'); //'e243a6a733de08c8dfd37e86abd7d2a3b82784de');
+
+    })(function(global, githubRoutes){
+        
+
+        // ###########################
+        // ### Helpers and globals ###
+        // ###########################
+
+        var FP = Function.prototype,
+            AP = Array.prototype,
+            OP = Object.prototype;
+
+        var bindbind   = FP.bind.bind(FP.bind),
+            callbind   = bindbind(FP.bind),
+            applybind  = bindbind(FP.apply);
+
+        var has        = callbind(OP.hasOwnProperty),
+            slice      = callbind(AP.slice),
+            flatten    = applybind(AP.concat, []);
+
+        var filter_    = AP.filter,
+            map_       = AP.map,
+            push_      = AP.push,
+            slice_     = AP.slice;
+
+
+        function decorate(o){
+            var b, c, d;
+            for (var i=1; b = arguments[i]; i++) {
+                for (c in b) {
+                    if (d = Object.getOwnPropertyDescriptor(b, c)) {
+                        if (d.get || d.set) {
+                            Object.defineProperty(o, c, d);
+                        } else {
+                            o[c] = d.value;
                         }
                     }
-                });
-                this.document = jQuery( element.style ?
-                    // element within the document
-                    element.ownerDocument :
-                    // element is window or document
-                element.document || element );
-                this.window = jQuery( this.document[0].defaultView || this.document[0].parentWindow );
-            }
-
-            this.options = jQuery.widget.extend( {},
-                this.options,
-                this._getCreateOptions(),
-                options );
-
-            this._create();
-            this._trigger( "create", null, this._getCreateEventData() );
-            this._init();
-        },
-        _getCreateOptions: jQuery.noop,
-        _getCreateEventData: jQuery.noop,
-        _create: jQuery.noop,
-        _init: jQuery.noop,
-
-        destroy: function() {
-            this._destroy();
-            // we can probably remove the unbind calls in 2.0
-            // all event bindings should go through this._on()
-            this.element
-                .unbind( this.eventNamespace )
-                .removeData( this.widgetFullName )
-                // support: jquery <1.6.3
-                // http://bugs.jquery.com/ticket/9413
-                .removeData( jQuery.camelCase( this.widgetFullName ) );
-            this.widget()
-                .unbind( this.eventNamespace )
-                .removeAttr( "aria-disabled" )
-                .removeClass(
-                this.widgetFullName + "-disabled " +
-                "ui-state-disabled" );
-
-            // clean up events and states
-            this.bindings.unbind( this.eventNamespace );
-            this.hoverable.removeClass( "ui-state-hover" );
-            this.focusable.removeClass( "ui-state-focus" );
-        },
-        _destroy: jQuery.noop,
-
-        widget: function() {
-            return this.element;
-        },
-
-        option: function( key, value ) {
-            var options = key,
-                parts,
-                curOption,
-                i;
-
-            if ( arguments.length === 0 ) {
-                // don't return a reference to the internal hash
-                return jQuery.widget.extend( {}, this.options );
-            }
-
-            if ( typeof key === "string" ) {
-                // handle nested keys, e.g., "foo.bar" => { foo: { bar: ___ } }
-                options = {};
-                parts = key.split( "." );
-                key = parts.shift();
-                if ( parts.length ) {
-                    curOption = options[ key ] = jQuery.widget.extend( {}, this.options[ key ] );
-                    for ( i = 0; i < parts.length - 1; i++ ) {
-                        curOption[ parts[ i ] ] = curOption[ parts[ i ] ] || {};
-                        curOption = curOption[ parts[ i ] ];
-                    }
-                    key = parts.pop();
-                    if ( arguments.length === 1 ) {
-                        return curOption[ key ] === undefined ? null : curOption[ key ];
-                    }
-                    curOption[ key ] = value;
-                } else {
-                    if ( arguments.length === 1 ) {
-                        return this.options[ key ] === undefined ? null : this.options[ key ];
-                    }
-                    options[ key ] = value;
                 }
             }
-
-            this._setOptions( options );
-
-            return this;
-        },
-        _setOptions: function( options ) {
-            var key;
-
-            for ( key in options ) {
-                this._setOption( key, options[ key ] );
-            }
-
-            return this;
-        },
-        _setOption: function( key, value ) {
-            this.options[ key ] = value;
-
-            if ( key === "disabled" ) {
-                this.widget()
-                    .toggleClass( this.widgetFullName + "-disabled", !!value );
-
-                // If the widget is becoming disabled, then nothing is interactive
-                if ( value ) {
-                    this.hoverable.removeClass( "ui-state-hover" );
-                    this.focusable.removeClass( "ui-state-focus" );
-                }
-            }
-
-            return this;
-        },
-
-        enable: function() {
-            return this._setOptions({ disabled: false });
-        },
-        disable: function() {
-            return this._setOptions({ disabled: true });
-        },
-
-        _on: function( suppressDisabledCheck, element, handlers ) {
-            var delegateElement,
-                instance = this;
-
-            // no suppressDisabledCheck flag, shuffle arguments
-            if ( typeof suppressDisabledCheck !== "boolean" ) {
-                handlers = element;
-                element = suppressDisabledCheck;
-                suppressDisabledCheck = false;
-            }
-
-            // no element argument, shuffle and use this.element
-            if ( !handlers ) {
-                handlers = element;
-                element = this.element;
-                delegateElement = this.widget();
-            } else {
-                element = delegateElement = jQuery( element );
-                this.bindings = this.bindings.add( element );
-            }
-
-            jQuery.each( handlers, function( event, handler ) {
-                function handlerProxy() {
-                    // allow widgets to customize the disabled handling
-                    // - disabled as an array instead of boolean
-                    // - disabled class as method for disabling individual parts
-                    if ( !suppressDisabledCheck &&
-                        ( instance.options.disabled === true ||
-                        jQuery( this ).hasClass( "ui-state-disabled" ) ) ) {
-                        return;
-                    }
-                    return ( typeof handler === "string" ? instance[ handler ] : handler )
-                        .apply( instance, arguments );
-                }
-
-                // copy the guid so direct unbinding works
-                if ( typeof handler !== "string" ) {
-                    handlerProxy.guid = handler.guid =
-                        handler.guid || handlerProxy.guid || jQuery.guid++;
-                }
-
-                var match = event.match( /^([\w:-]*)\s*(.*)$/ ),
-                    eventName = match[1] + instance.eventNamespace,
-                    selector = match[2];
-                if ( selector ) {
-                    delegateElement.delegate( selector, eventName, handlerProxy );
-                } else {
-                    element.bind( eventName, handlerProxy );
-                }
-            });
-        },
-
-        _off: function( element, eventName ) {
-            eventName = (eventName || "").split( " " ).join( this.eventNamespace + " " ) +
-            this.eventNamespace;
-            element.unbind( eventName ).undelegate( eventName );
-
-            // Clear the stack to avoid memory leaks (#10056)
-            this.bindings = jQuery( this.bindings.not( element ).get() );
-            this.focusable = jQuery( this.focusable.not( element ).get() );
-            this.hoverable = jQuery( this.hoverable.not( element ).get() );
-        },
-
-        _delay: function( handler, delay ) {
-            function handlerProxy() {
-                return ( typeof handler === "string" ? instance[ handler ] : handler )
-                    .apply( instance, arguments );
-            }
-            var instance = this;
-            return setTimeout( handlerProxy, delay || 0 );
-        },
-
-        _hoverable: function( element ) {
-            this.hoverable = this.hoverable.add( element );
-            this._on( element, {
-                mouseenter: function( event ) {
-                    jQuery( event.currentTarget ).addClass( "ui-state-hover" );
-                },
-                mouseleave: function( event ) {
-                    jQuery( event.currentTarget ).removeClass( "ui-state-hover" );
-                }
-            });
-        },
-
-        _focusable: function( element ) {
-            this.focusable = this.focusable.add( element );
-            this._on( element, {
-                focusin: function( event ) {
-                    jQuery( event.currentTarget ).addClass( "ui-state-focus" );
-                },
-                focusout: function( event ) {
-                    jQuery( event.currentTarget ).removeClass( "ui-state-focus" );
-                }
-            });
-        },
-
-        _trigger: function( type, event, data ) {
-            var prop, orig,
-                callback = this.options[ type ];
-
-            data = data || {};
-            event = jQuery.Event( event );
-            event.type = ( type === this.widgetEventPrefix ?
-                type :
-            this.widgetEventPrefix + type ).toLowerCase();
-            // the original event may come from any element
-            // so we need to reset the target on the new event
-            event.target = this.element[ 0 ];
-
-            // copy original event properties over to the new event
-            orig = event.originalEvent;
-            if ( orig ) {
-                for ( prop in orig ) {
-                    if ( !( prop in event ) ) {
-                        event[ prop ] = orig[ prop ];
-                    }
-                }
-            }
-
-            this.element.trigger( event, data );
-            return !( jQuery.isFunction( callback ) &&
-            callback.apply( this.element[0], [ event ].concat( data ) ) === false ||
-            event.isDefaultPrevented() );
+            return o;
         }
-    };
 
-    jQuery.each( { show: "fadeIn", hide: "fadeOut" }, function( method, defaultEffect ) {
-        jQuery.Widget.prototype[ "_" + method ] = function( element, options, callback ) {
-            if ( typeof options === "string" ) {
-                options = { effect: options };
+        function isObject(o){
+            return o != null && typeof o === 'object' || typeof o === 'function';
+        }
+
+        function isIndexed(o){
+            return Array.isArray(o) || isObject(o) && has(o, 'length') && has(o, o.length - 1);
+        }
+
+        // ############
+        // ### Path ###
+        // ############
+
+        function Path(a){
+            if (isIndexed(a)) {
+                push_.apply(this, a);
             }
-            var hasOptions,
-                effectName = !options ?
-                    method :
-                    options === true || typeof options === "number" ?
-                        defaultEffect :
-                    options.effect || defaultEffect;
+        }
+
+        Path.prototype.length = 0;
+
+        decorate(Path.prototype, {
+            join: Array.prototype.join,
+            map: Array.prototype.map,
+            concat: function concat(){
+                var out = new Path(this);
+                push_.apply(out, arguments);
+                return out;
+            },
+            args: function args(){
+                return filter_.call(this, function(s){
+                    return s[0] === 'Δ';
+                }).map(function(s){
+                    return s.replace(/Δ/g, '');
+                });
+            },
+            toName: function toName(slice, last){
+                var array = map_.call(this, function(s){
+                    return s.replace(/Δ/g, '');
+                });
+
+                if (last) {
+                    array.push(last);
+                }
+
+                var out = array.slice(slice || 1).map(function(s){
+                    return s[0].toUpperCase() + s.slice(1).toLowerCase();
+                });
+
+                if (!out[0]) {
+                    return '';
+                } else {
+                    out[0] = out[0].toLowerCase();
+                    return out.join('').replace(/_(.)/g, function(s){
+                        return s[1].toUpperCase();
+                    });
+                }
+            },
+            slice: function slice(){
+                return new Path(slice_.apply(this, arguments));
+            }
+        });
+
+
+        // #################
+        // ### Transport ###
+        // #################
+
+        // superclass for XHR and JSONP
+
+        function Transport(options, callback){
             options = options || {};
-            if ( typeof options === "number" ) {
-                options = { duration: options };
+            if (typeof options === 'string') {
+                options = { url: options };
             }
-            hasOptions = !jQuery.isEmptyObject( options );
-            options.complete = callback;
-            if ( options.delay ) {
-                element.delay( options.delay );
+            if (typeof callback === 'function') {
+                options.callback = callback;
             }
-            if ( hasOptions && jQuery.effects && jQuery.effects.effect[ effectName ] ) {
-                element[ method ]( options );
-            } else if ( effectName !== method && element[ effectName ] ) {
-                element[ effectName ]( options.duration, options.easing, callback );
-            } else {
-                element.queue(function( next ) {
-                    jQuery( this )[ method ]();
-                    if ( callback ) {
-                        callback.call( element[ 0 ] );
+            this.data = options.data || {};
+            this.path = options.path || [];
+            this.base = options.url;
+            this.callback = options.callback || function(){};
+            this.state = 'idle';
+        }
+
+        Transport.transports = {};
+
+        decorate(Transport, {
+            register: function register(ctor){
+                Transport.transports[ctor.name.toLowerCase()] = ctor;
+            },
+            lookup: function lookup(name){
+                name = name.toLowerCase();
+                return name in Transport.transports ? Transport.transports[name] : null;
+            },
+            create: function create(type, base, dispatcher){
+                var T = Transport.lookup(type);
+                return new T(base, dispatcher);
+            }
+        });
+
+
+        decorate(Transport.prototype, {
+            params: function params(){
+                var data = Object.keys(this.data).map(function(name){ return [name, this.data[name]] }, this);
+                data.push([this.callbackParam, this.callbackName]);
+                return data.map(function(item){
+                    return encodeURIComponent(item[0]) + '=' + encodeURIComponent(item[1]);
+                }).join('&');
+            }
+        });
+
+        // #######################
+        // ### JSONP Transport ###
+        // #######################
+
+        function JSONP(options, callback){
+            Transport.call(this, options = options || {}, callback);
+            this.callbackParam = options.callbackParam || 'callback';
+            this.callbackName = options.callbackName || '_'+Math.random().toString(36).slice(2);
+        }
+
+        Transport.register(JSONP);
+
+        JSONP.prototype = Object.create(Transport.prototype);
+        decorate(JSONP.prototype, {
+            constructor: JSONP,
+            url: function url(){
+                return [this.base].concat(this.path).join('/') + '?' + this.params();
+            },
+            send: function send(callback){
+                var script = document.createElement('script'),
+                    completed
+
+                callback = callback || this.callback;
+
+                function complete(state, result){
+                    if (!completed) {
+                        completed = true;
+                        delete window[this.callbackName];
+                        document.body.removeChild(script);
+                        this.state = state;
+                        callback.call(this, result);
                     }
-                    next();
+                }
+
+                script.src = this.url();
+                script.async = script.defer = true;
+                script.onerror = complete.bind(this, 'error');
+                window[this.callbackName] = complete.bind(this, 'success');
+
+                document.body.appendChild(script);
+                this.state = 'loading';
+                return this;
+            }
+        });
+
+        // ################################
+        // ### XMLHttpRequest Transport ###
+        // ################################
+
+        function XHR(options, callback){
+            this.headers = {};
+            options = options || {}
+
+            Transport.call(this, options, callback);
+
+            if (options.headers) {
+                Object.keys(options.headers).forEach(function(n){
+                    this[n] = options.headers[n];
+                }, this.headers);
+            }
+        }
+
+        Transport.register(XHR);
+
+        XHR.prototype = Object.create(Transport.prototype);
+        decorate(XHR.prototype, {
+            constructor: XHR,
+            url: function url(){
+                var params = this.params();
+                return [this.base].concat(this.path).join('/') + (this.verb === 'get' && params ? '?' + params : '');
+            },
+            auth: function auth(user, pass){
+                if (!pass && user.length === 40) {
+                    this.headers.Authorization = 'token '+user;
+                } else {
+                    this.headers.Authorization = 'Basic '+btoa(user+':'+pass);
+                }
+            },
+            send: function send(callback, verb){
+                var xhr = new XMLHttpRequest,
+                    self = this;
+
+                if (typeof callback !== 'function') {
+                    verb = callback;
+                    callback = this.callback;
+                }
+
+                function complete(data){
+                    if (xhr.readyState === 4) {
+                        self.state = 'complete';
+                        callback.call(self, JSON.parse(xhr.responseText));
+                    }
+                }
+
+                xhr.open(verb || 'GET', this.url());
+                if (this.headers.Authenticate) {
+                    xhr.withCredentials = true;
+                }
+
+                Object.keys(this.headers).forEach(function(name){
+                    xhr.setRequestHeader(name, self.headers[name]);
+                });
+
+                xhr.onerror = complete;
+                xhr.onload = complete;
+
+                xhr.send(this.data ||  null);
+                this.state = 'loading';
+                return this;
+            }
+        });
+
+
+        function makeCtor(args, api){
+            var Ctor = function(){
+                var self = this instanceof Ctor ? this : Object.create(Ctor.prototype);
+                return api.request(arguments, args, self);
+            }
+
+            decorate(Ctor, {
+                args: Object.freeze(args),
+                toString: function toString(){ return '[ '+this.args.join(', ')+' ]' }
+            });
+            return Ctor;
+        }
+
+        // #################
+        // ### APIClient ###
+        // #################
+
+        // generalized REST API handler that turns routes into functions
+
+        function APIClient(routes, onlyGetters){
+            var self = this;
+            var slices = {};
+
+            function recurse(o,path){
+                Object.keys(o).forEach(function(k){
+                    if (k === 'SLICE') {
+                        slices[path[0]] = o[k];
+                    } else if (k.toUpperCase() === k) {
+                        if (onlyGetters) {
+                            if (k !== 'GET') return;
+                            var name = path.toName(slices[path[0]]);
+                        } else {
+                            var name = path.toName(slices[path[0]], k);
+                        }
+
+                        if (name) {
+                            var target = self[path[0]] || (self[path[0]] = {});
+                        } else {
+                            name = path[0];
+                            var target = self;
+                        }
+
+                        target[name] = makeCtor(path.args().concat(o[k]), self);
+
+                        Object.defineProperty(target[name].prototype, 'path', {
+                            get: function(){
+                                return path.map(function(s){
+                                    return s[0] === 'Δ' ? this[s.slice(1)] : s;
+                                }, this).join('/');
+                            }
+                        });
+
+                    } else if (isObject(o[k])) {
+                        recurse(o[k], path.concat(k));
+                    }
                 });
             }
+
+            recurse(routes, new Path);
+        }
+
+        decorate(APIClient.prototype, {
+            request: function request(args, fields, req){
+                args = [].slice.call(args);
+                var callback = typeof args[args.length-1] === 'function' ? args.pop() : this.callback;
+                fields.forEach(function(p,i){
+                    if (typeof args[i] != null) {
+                        req[p] = args[i];
+                    }
+                });
+                var transport = decorate(Object.create(this.transport), {
+                    path: req.path,
+                    data: req
+                });
+                transport.send(callback);
+                return transport;
+            },
+            setTransport: function setTransport(type, base, dispatcher){
+                Object.defineProperty(this, 'transport', {
+                    value: Transport.create(type, base, dispatcher),
+                    configurable: true,
+                    writable: true
+                });
+            }
+        });
+
+
+        // ####################
+        // ### GithubClient ###
+        // ####################
+
+        // APIClient subclass with routes and utilities for Github
+
+        function GithubClient(user, password){
+            var self = this;
+
+            function findRefs(obj){
+                isObject(obj) && Object.keys(obj).forEach(function(key){
+                    if (key !== 'url') return;
+
+                    var val = obj[key].slice(23).split('/');
+                    var fn = self[val[0]];
+                    if (!fn) return;
+                    if (fn[val[1]]) {
+                        fn = fn[val[1]];
+                        val = val.slice(2);
+                    } else {
+                        val = val.slice(1);
+                    }
+
+                    obj.resolve = function(cb){
+                        if (typeof cb === 'function') val.push(cb);
+                        return fn.apply(null, val);
+                    }.bind(null);
+
+                    if (isObject(obj[key])) {
+                        return findRefs(obj[key]);
+                    }
+                });
+            }
+
+            this.setTransport('xhr', 'https://api.github.com', function(result){
+                if (result) {
+                    findRefs(result);
+                    self.lastResult = result;
+                }
+                if (self.callback) {
+                    self.callback.call(self, result);
+                }
+            });
+
+            this.transport.headers.Accept = 'application/vnd.github.full+json';
+            if (user) {
+                this.transport.auth(user, password);
+            }
+
+            APIClient.call(this, githubRoutes, true);
+            this.users.search = this.legacy.userSearchKeyword;
+            this.users.searchEmails = this.legacy.userEmailEmail;
+            this.repos.search = this.legacy.reposSearchKeyword;
+            this.repos.searchIssues = this.legacy.issuesSearchOwnerRepositoryStateKeyword;
+            delete this.legacy;
+        }
+
+        GithubClient.createClient = function createClient(user, pass){
+            return new GithubClient(user, pass);
         };
-    });
 
-    var widget = jQuery.widget;
+        GithubClient.prototype = Object.create(APIClient.prototype)
+        decorate(GithubClient.prototype, {
+            constructor: GithubClient
+        });
 
+        return GithubClient;
 
+// ########################################
+// ### Routes for Github V3 API in full ###
+// ########################################
 
+    }(new Function('return this')(), {
+        legacy:{SLICE:1,issues:{search:{Δowner:{Δrepository:{Δstate:{Δkeyword:{GET:[]}}}}}},repos:{search:{Δkeyword:{GET:['language','start_page']}}},user:{search:{Δkeyword:{GET:[]}},email:{Δemail:{GET:[]}}}},
+        gists:{SLICE:1,POST:['description','public','files'],GET:['page','per_page'],public:{GET:[]},starred:{GET:[]},Δid:{GET:[],PATCH:['description','files'],star:{GET:[],DELETE:[],POST:[]},fork:{POST:[]},comments:{GET:[],POST:['input'],Δid:{GET:[],DELETE:[],PATCH:['body']}}}},
+        teams:{SLICE:2,Δid:{GET:[],DELETE:[],PATCH:['name','permission'],members:{GET:['page','per_page'],Δuser:{GET:[],DELETE:[],POST:[]}},repos:{GET:['page','per_page'],Δuser:{Δrepo:{GET:[],DELETE:[],POST:[]}}}}},
+        orgs:{SLICE:2,Δorg:{GET:['page','per_page'],PATCH:['billing_email','company','email','location','name'],members:{GET:['page','per_page'],Δuser:{GET:[],DELETE:[]}},public_members:{GET:[],Δuser:{GET:[],DELETE:[],POST:[]}},teams:{GET:[],POST:['name','repo_names','permission']},repos:{GET:['type','page','per_page'],POST:['name','description','homepage','private','has_issues','has_wiki','has_downloads','team_id'],Δsha:{GET:[]}}}},
+        repos:{SLICE:3,Δuser:{Δrepo:{GET:[],GET2:['page','per_page'],PATCH:['name','description','homepage','private','has_issues','has_wiki','has_downloads'],contributors:{GET:['anon','page','per_page']},languages:{GET:['anon','page','per_page']},teams:{GET:['page','per_page']},tags:{GET:['page','per_page'],Δsha:{POST:['tag','message','object','type','tagger.name','tagger.email','tagger.date']}},git:{refs:{POST:['refs','sha'],GET:['page','per_page'],Δref:{GET:[],PATCH:['sha','force']}},commits:{POST:['message','tree','parents','author','committer'],Δsha:{GET:[]}},blobs:{POST:['content','encoding'],Δsha:{GET:['page','per_page']}}},
+            branches:{GET:['page','per_page']},events:{GET:['page','per_page']},issues:{GET:['milestone','state','assignee','mentioned','labels','sort','direction','since','page','per_page'],POST:['title','body','assignee','milestone','labels'],events:{GET:['page','per_page'],GET2:[],Δid:{}},Δnumber:{GET:[],PATCH:['title','body','assignee','milestone','labels'],comments:{GET:['page','per_page'],POST:['body']},events:{GET:['page','per_page']}},comments:{Δid:{GET:[],DELETE:[],PATCH:['body']}},},pulls:{GET:['state','page','per_page'],POST:['title','body','base','head'],POST2:['issue','base','head'],Δnumber:{GET:[],PATCH:['state','title','body'],merge:{GET:['page','per_page'],POST:['commit_message']},files:{GET:['page','per_page']},commits:{GET:['page','per_page']},
+                comments:{POST:['body','in_reply_to'],POST2:['body','commit_id','path','position'],GET:['page','per_page'],}},comments:{Δnumber:{GET:[],DELETE:[],PATCH:['body']}}},commits:{GET:['sha','path','page','per_page'],Δsha:{GET:[],comments:{GET:['page','per_page'],POST:['body','commit_id','line','path','position']}},},comments:{Δid:{GET:[],DELETE:[],PATCH:['body']}},compare:{ΔbaseΔhead:{GET:['base','head']}},download:{GET:['page','per_page']},downloads:{Δid:{GET:[],DELETE:[]}},forks:{POST:['org'],GET:['sort','page','per_page']},labels:{GET:[],POST:['name','color'],Δname:{GET:[],POST:['color']}},keys:{GET:['page','per_page'],POST:['title','key'],Δid:{GET:[],DELETE:[],POST:['title','key']}},watchers:{GET:['page','per_page']},
+            hooks:{GET:['page','per_page'],POST:['name','config','events','active'],Δid:{GET:[],DELETE:[],PATCH:['name','config','events','add_events','remove_events','active'],test:{POST:[]}}},milestones:{POST:['title','state','description','due_on'],GET:['state','sort','page','per_page'],Δnumber:{DELETE:[],GET:[],PATCH:['title','state','description','due_on']}},trees:{POST:['tree'],Δsha:{GET:['recursive']}},collaborators:{GET:['page','per_page'],Δcollabuser:{GET:[],DELETE:[],POST:[]}}}}},
+        authorizations:{SLICE:0,GET:[]},
+        user:{SLICE:1,GET:[],PATCH:['name','email','blog','company','location','hireable','bio'],gists:{GET:['page','per_page']},emails:{GET:['page','per_page'],DELETE:[],POST:[]},following:{GET:['page','per_page'],Δuser:{GET:['page','per_page'],DELETE:[],POST:[]}},watched:{GET:['page','per_page'],Δuser:{Δrepo:{GET:['page','per_page'],DELETE:[],POST:[]}}},keys:{GET:['page','per_page'],POST:['title','key'],Δid:{GET:[],DELETE:[],PATCH:['title','key']}},repos:{GET:['type','page','per_page'],POST:['name','description','homepage','private','has_issues','has_wiki','has_downloads']}},
+        users:{SLICE:2,Δuser:{GET:[],gists:{GET:['page','per_page']},followers:{GET:['page','per_page']},following:{GET:['page','per_page']},orgs:{GET:['page','per_page']},watched:{GET:['page','per_page']},received_events:{GET:['page','per_page']},events:{GET:['page','per_page']},repos:{GET:['type','page','per_page']}}},
+        networks:{SLICE:2,Δuser:{Δrepo:{events:{GET:['page','per_page']}},events:{orgs:{Δorg:{GET:['page','per_page']}}}}},
+        events:{SLICE:1,GET:['page','per_page']}
+    }));
 
+    github.token = 'asdf';
+
+    jQuery.github = github;
 
 
 
@@ -10282,37 +10318,6 @@ jQuery.each( { Height: "height", Width: "width" }, function( name, type ) {
 
                     return tmp_arr.join('');
                 }
-            }
-        }
-    });
-
-
-    function defined(val){
-        return typeof val !== 'undefined';
-    }
-
-
-    jQuery.extend({
-        etag: function (name, url, val) {
-            var key = 'github-' + jQuery.crypt.md5(url);
-            var etags = jQuery.cookie(name);
-
-            if (defined(etags)) {
-                if (defined(val)) {
-                    // set etag
-                    etags[key] = val;
-                    $.cookie(name, etags);
-                } else if (defined(etags[key])) {
-                    // get etag
-                    return etags[key];
-                } else {
-                    // get etag, failed
-                    return false;
-                }
-            } else {
-                etags = {};
-                etags[key] = val;
-                $.cookie(name, etags);
             }
         }
     });
@@ -11943,988 +11948,63 @@ jQuery.each( { Height: "height", Width: "width" }, function( name, type ) {
     // wtb omit, pick, values, keys, where
 
 
-    var github = (function(GithubClient){
-
-        return new GithubClient('06ec61fd2853f215bb01f7c5b2e0f56ff8537838'); //'e243a6a733de08c8dfd37e86abd7d2a3b82784de');
-
-    })(function(global, githubRoutes){
-        
-
-        // ###########################
-        // ### Helpers and globals ###
-        // ###########################
-
-        var FP = Function.prototype,
-            AP = Array.prototype,
-            OP = Object.prototype;
-
-        var bindbind   = FP.bind.bind(FP.bind),
-            callbind   = bindbind(FP.bind),
-            applybind  = bindbind(FP.apply);
-
-        var has        = callbind(OP.hasOwnProperty),
-            slice      = callbind(AP.slice),
-            flatten    = applybind(AP.concat, []);
-
-        var filter_    = AP.filter,
-            map_       = AP.map,
-            push_      = AP.push,
-            slice_     = AP.slice;
-
-
-        function decorate(o){
-            var b, c, d;
-            for (var i=1; b = arguments[i]; i++) {
-                for (c in b) {
-                    if (d = Object.getOwnPropertyDescriptor(b, c)) {
-                        if (d.get || d.set) {
-                            Object.defineProperty(o, c, d);
-                        } else {
-                            o[c] = d.value;
-                        }
-                    }
-                }
-            }
-            return o;
-        }
-
-        function isObject(o){
-            return o != null && typeof o === 'object' || typeof o === 'function';
-        }
-
-        function isIndexed(o){
-            return Array.isArray(o) || isObject(o) && has(o, 'length') && has(o, o.length - 1);
-        }
-
-        // ############
-        // ### Path ###
-        // ############
-
-        function Path(a){
-            if (isIndexed(a)) {
-                push_.apply(this, a);
-            }
-        }
-
-        Path.prototype.length = 0;
-
-        decorate(Path.prototype, {
-            join: Array.prototype.join,
-            map: Array.prototype.map,
-            concat: function concat(){
-                var out = new Path(this);
-                push_.apply(out, arguments);
-                return out;
-            },
-            args: function args(){
-                return filter_.call(this, function(s){
-                    return s[0] === 'Δ';
-                }).map(function(s){
-                    return s.replace(/Δ/g, '');
-                });
-            },
-            toName: function toName(slice, last){
-                var array = map_.call(this, function(s){
-                    return s.replace(/Δ/g, '');
-                });
-
-                if (last) {
-                    array.push(last);
-                }
-
-                var out = array.slice(slice || 1).map(function(s){
-                    return s[0].toUpperCase() + s.slice(1).toLowerCase();
-                });
-
-                if (!out[0]) {
-                    return '';
-                } else {
-                    out[0] = out[0].toLowerCase();
-                    return out.join('').replace(/_(.)/g, function(s){
-                        return s[1].toUpperCase();
-                    });
-                }
-            },
-            slice: function slice(){
-                return new Path(slice_.apply(this, arguments));
-            }
-        });
-
-
-        // #################
-        // ### Transport ###
-        // #################
-
-        // superclass for XHR and JSONP
-
-        function Transport(options, callback){
-            options = options || {};
-            if (typeof options === 'string') {
-                options = { url: options };
-            }
-            if (typeof callback === 'function') {
-                options.callback = callback;
-            }
-            this.data = options.data || {};
-            this.path = options.path || [];
-            this.base = options.url;
-            this.callback = options.callback || function(){};
-            this.state = 'idle';
-        }
-
-        Transport.transports = {};
-
-        decorate(Transport, {
-            register: function register(ctor){
-                Transport.transports[ctor.name.toLowerCase()] = ctor;
-            },
-            lookup: function lookup(name){
-                name = name.toLowerCase();
-                return name in Transport.transports ? Transport.transports[name] : null;
-            },
-            create: function create(type, base, dispatcher){
-                var T = Transport.lookup(type);
-                return new T(base, dispatcher);
-            }
-        });
-
-
-        decorate(Transport.prototype, {
-            params: function params(){
-                var data = Object.keys(this.data).map(function(name){ return [name, this.data[name]] }, this);
-                data.push([this.callbackParam, this.callbackName]);
-                return data.map(function(item){
-                    return encodeURIComponent(item[0]) + '=' + encodeURIComponent(item[1]);
-                }).join('&');
-            }
-        });
-
-        // #######################
-        // ### JSONP Transport ###
-        // #######################
-
-        function JSONP(options, callback){
-            Transport.call(this, options = options || {}, callback);
-            this.callbackParam = options.callbackParam || 'callback';
-            this.callbackName = options.callbackName || '_'+Math.random().toString(36).slice(2);
-        }
-
-        Transport.register(JSONP);
-
-        JSONP.prototype = Object.create(Transport.prototype);
-        decorate(JSONP.prototype, {
-            constructor: JSONP,
-            url: function url(){
-                return [this.base].concat(this.path).join('/') + '?' + this.params();
-            },
-            send: function send(callback){
-                var script = document.createElement('script'),
-                    completed
-
-                callback = callback || this.callback;
-
-                function complete(state, result){
-                    if (!completed) {
-                        completed = true;
-                        delete window[this.callbackName];
-                        document.body.removeChild(script);
-                        this.state = state;
-                        callback.call(this, result);
-                    }
-                }
-
-                script.src = this.url();
-                script.async = script.defer = true;
-                script.onerror = complete.bind(this, 'error');
-                window[this.callbackName] = complete.bind(this, 'success');
-
-                document.body.appendChild(script);
-                this.state = 'loading';
-                return this;
-            }
-        });
-
-        // ################################
-        // ### XMLHttpRequest Transport ###
-        // ################################
-
-        function XHR(options, callback){
-            this.headers = {};
-            options = options || {}
-
-            Transport.call(this, options, callback);
-
-            if (options.headers) {
-                Object.keys(options.headers).forEach(function(n){
-                    this[n] = options.headers[n];
-                }, this.headers);
-            }
-        }
-
-        Transport.register(XHR);
-
-        XHR.prototype = Object.create(Transport.prototype);
-        decorate(XHR.prototype, {
-            constructor: XHR,
-            url: function url(){
-                var params = this.params();
-                return [this.base].concat(this.path).join('/') + (this.verb === 'get' && params ? '?' + params : '');
-            },
-            auth: function auth(user, pass){
-                if (!pass && user.length === 40) {
-                    this.headers.Authorization = 'token '+user;
-                } else {
-                    this.headers.Authorization = 'Basic '+btoa(user+':'+pass);
-                }
-            },
-            send: function send(callback, verb){
-                var xhr = new XMLHttpRequest,
-                    self = this;
-
-                if (typeof callback !== 'function') {
-                    verb = callback;
-                    callback = this.callback;
-                }
-
-                function complete(data){
-                    if (xhr.readyState === 4) {
-                        self.state = 'complete';
-                        callback.call(self, JSON.parse(xhr.responseText));
-                    }
-                }
-
-                xhr.open(verb || 'GET', this.url());
-                if (this.headers.Authenticate) {
-                    xhr.withCredentials = true;
-                }
-
-                Object.keys(this.headers).forEach(function(name){
-                    xhr.setRequestHeader(name, self.headers[name]);
-                });
-
-                xhr.onerror = complete;
-                xhr.onload = complete;
-
-                xhr.send(this.data ||  null);
-                this.state = 'loading';
-                return this;
-            }
-        });
-
-
-        function makeCtor(args, api){
-            var Ctor = function(){
-                var self = this instanceof Ctor ? this : Object.create(Ctor.prototype);
-                return api.request(arguments, args, self);
-            }
-
-            decorate(Ctor, {
-                args: Object.freeze(args),
-                toString: function toString(){ return '[ '+this.args.join(', ')+' ]' }
-            });
-            return Ctor;
-        }
-
-        // #################
-        // ### APIClient ###
-        // #################
-
-        // generalized REST API handler that turns routes into functions
-
-        function APIClient(routes, onlyGetters){
-            var self = this;
-            var slices = {};
-
-            function recurse(o,path){
-                Object.keys(o).forEach(function(k){
-                    if (k === 'SLICE') {
-                        slices[path[0]] = o[k];
-                    } else if (k.toUpperCase() === k) {
-                        if (onlyGetters) {
-                            if (k !== 'GET') return;
-                            var name = path.toName(slices[path[0]]);
-                        } else {
-                            var name = path.toName(slices[path[0]], k);
-                        }
-
-                        if (name) {
-                            var target = self[path[0]] || (self[path[0]] = {});
-                        } else {
-                            name = path[0];
-                            var target = self;
-                        }
-
-                        target[name] = makeCtor(path.args().concat(o[k]), self);
-
-                        Object.defineProperty(target[name].prototype, 'path', {
-                            get: function(){
-                                return path.map(function(s){
-                                    return s[0] === 'Δ' ? this[s.slice(1)] : s;
-                                }, this).join('/');
-                            }
-                        });
-
-                    } else if (isObject(o[k])) {
-                        recurse(o[k], path.concat(k));
-                    }
-                });
-            }
-
-            recurse(routes, new Path);
-        }
-
-        decorate(APIClient.prototype, {
-            request: function request(args, fields, req){
-                args = [].slice.call(args);
-                var callback = typeof args[args.length-1] === 'function' ? args.pop() : this.callback;
-                fields.forEach(function(p,i){
-                    if (typeof args[i] != null) {
-                        req[p] = args[i];
-                    }
-                });
-                var transport = decorate(Object.create(this.transport), {
-                    path: req.path,
-                    data: req
-                });
-                transport.send(callback);
-                return transport;
-            },
-            setTransport: function setTransport(type, base, dispatcher){
-                Object.defineProperty(this, 'transport', {
-                    value: Transport.create(type, base, dispatcher),
-                    configurable: true,
-                    writable: true
-                });
-            }
-        });
-
-
-        // ####################
-        // ### GithubClient ###
-        // ####################
-
-        // APIClient subclass with routes and utilities for Github
-
-        function GithubClient(user, password){
-            var self = this;
-
-            function findRefs(obj){
-                isObject(obj) && Object.keys(obj).forEach(function(key){
-                    if (key !== 'url') return;
-
-                    var val = obj[key].slice(23).split('/');
-                    var fn = self[val[0]];
-                    if (!fn) return;
-                    if (fn[val[1]]) {
-                        fn = fn[val[1]];
-                        val = val.slice(2);
-                    } else {
-                        val = val.slice(1);
-                    }
-
-                    obj.resolve = function(cb){
-                        if (typeof cb === 'function') val.push(cb);
-                        return fn.apply(null, val);
-                    }.bind(null);
-
-                    if (isObject(obj[key])) {
-                        return findRefs(obj[key]);
-                    }
-                });
-            }
-
-            this.setTransport('xhr', 'https://api.github.com', function(result){
-                if (result) {
-                    findRefs(result);
-                    self.lastResult = result;
-                }
-                if (self.callback) {
-                    self.callback.call(self, result);
-                }
-            });
-
-            this.transport.headers.Accept = 'application/vnd.github.full+json';
-            if (user) {
-                this.transport.auth(user, password);
-            }
-
-            APIClient.call(this, githubRoutes, true);
-            this.users.search = this.legacy.userSearchKeyword;
-            this.users.searchEmails = this.legacy.userEmailEmail;
-            this.repos.search = this.legacy.reposSearchKeyword;
-            this.repos.searchIssues = this.legacy.issuesSearchOwnerRepositoryStateKeyword;
-            delete this.legacy;
-        }
-
-        GithubClient.createClient = function createClient(user, pass){
-            return new GithubClient(user, pass);
-        };
-
-        GithubClient.prototype = Object.create(APIClient.prototype)
-        decorate(GithubClient.prototype, {
-            constructor: GithubClient
-        });
-
-        return GithubClient;
-
-// ########################################
-// ### Routes for Github V3 API in full ###
-// ########################################
-
-    }(new Function('return this')(), {
-        legacy:{SLICE:1,issues:{search:{Δowner:{Δrepository:{Δstate:{Δkeyword:{GET:[]}}}}}},repos:{search:{Δkeyword:{GET:['language','start_page']}}},user:{search:{Δkeyword:{GET:[]}},email:{Δemail:{GET:[]}}}},
-        gists:{SLICE:1,POST:['description','public','files'],GET:['page','per_page'],public:{GET:[]},starred:{GET:[]},Δid:{GET:[],PATCH:['description','files'],star:{GET:[],DELETE:[],POST:[]},fork:{POST:[]},comments:{GET:[],POST:['input'],Δid:{GET:[],DELETE:[],PATCH:['body']}}}},
-        teams:{SLICE:2,Δid:{GET:[],DELETE:[],PATCH:['name','permission'],members:{GET:['page','per_page'],Δuser:{GET:[],DELETE:[],POST:[]}},repos:{GET:['page','per_page'],Δuser:{Δrepo:{GET:[],DELETE:[],POST:[]}}}}},
-        orgs:{SLICE:2,Δorg:{GET:['page','per_page'],PATCH:['billing_email','company','email','location','name'],members:{GET:['page','per_page'],Δuser:{GET:[],DELETE:[]}},public_members:{GET:[],Δuser:{GET:[],DELETE:[],POST:[]}},teams:{GET:[],POST:['name','repo_names','permission']},repos:{GET:['type','page','per_page'],POST:['name','description','homepage','private','has_issues','has_wiki','has_downloads','team_id'],Δsha:{GET:[]}}}},
-        repos:{SLICE:3,Δuser:{Δrepo:{GET:[],GET2:['page','per_page'],PATCH:['name','description','homepage','private','has_issues','has_wiki','has_downloads'],contributors:{GET:['anon','page','per_page']},languages:{GET:['anon','page','per_page']},teams:{GET:['page','per_page']},tags:{GET:['page','per_page'],Δsha:{POST:['tag','message','object','type','tagger.name','tagger.email','tagger.date']}},git:{refs:{POST:['refs','sha'],GET:['page','per_page'],Δref:{GET:[],PATCH:['sha','force']}},commits:{POST:['message','tree','parents','author','committer'],Δsha:{GET:[]}},blobs:{POST:['content','encoding'],Δsha:{GET:['page','per_page']}}},
-            branches:{GET:['page','per_page']},events:{GET:['page','per_page']},issues:{GET:['milestone','state','assignee','mentioned','labels','sort','direction','since','page','per_page'],POST:['title','body','assignee','milestone','labels'],events:{GET:['page','per_page'],GET2:[],Δid:{}},Δnumber:{GET:[],PATCH:['title','body','assignee','milestone','labels'],comments:{GET:['page','per_page'],POST:['body']},events:{GET:['page','per_page']}},comments:{Δid:{GET:[],DELETE:[],PATCH:['body']}},},pulls:{GET:['state','page','per_page'],POST:['title','body','base','head'],POST2:['issue','base','head'],Δnumber:{GET:[],PATCH:['state','title','body'],merge:{GET:['page','per_page'],POST:['commit_message']},files:{GET:['page','per_page']},commits:{GET:['page','per_page']},
-                comments:{POST:['body','in_reply_to'],POST2:['body','commit_id','path','position'],GET:['page','per_page'],}},comments:{Δnumber:{GET:[],DELETE:[],PATCH:['body']}}},commits:{GET:['sha','path','page','per_page'],Δsha:{GET:[],comments:{GET:['page','per_page'],POST:['body','commit_id','line','path','position']}},},comments:{Δid:{GET:[],DELETE:[],PATCH:['body']}},compare:{ΔbaseΔhead:{GET:['base','head']}},download:{GET:['page','per_page']},downloads:{Δid:{GET:[],DELETE:[]}},forks:{POST:['org'],GET:['sort','page','per_page']},labels:{GET:[],POST:['name','color'],Δname:{GET:[],POST:['color']}},keys:{GET:['page','per_page'],POST:['title','key'],Δid:{GET:[],DELETE:[],POST:['title','key']}},watchers:{GET:['page','per_page']},
-            hooks:{GET:['page','per_page'],POST:['name','config','events','active'],Δid:{GET:[],DELETE:[],PATCH:['name','config','events','add_events','remove_events','active'],test:{POST:[]}}},milestones:{POST:['title','state','description','due_on'],GET:['state','sort','page','per_page'],Δnumber:{DELETE:[],GET:[],PATCH:['title','state','description','due_on']}},trees:{POST:['tree'],Δsha:{GET:['recursive']}},collaborators:{GET:['page','per_page'],Δcollabuser:{GET:[],DELETE:[],POST:[]}}}}},
-        authorizations:{SLICE:0,GET:[]},
-        user:{SLICE:1,GET:[],PATCH:['name','email','blog','company','location','hireable','bio'],gists:{GET:['page','per_page']},emails:{GET:['page','per_page'],DELETE:[],POST:[]},following:{GET:['page','per_page'],Δuser:{GET:['page','per_page'],DELETE:[],POST:[]}},watched:{GET:['page','per_page'],Δuser:{Δrepo:{GET:['page','per_page'],DELETE:[],POST:[]}}},keys:{GET:['page','per_page'],POST:['title','key'],Δid:{GET:[],DELETE:[],PATCH:['title','key']}},repos:{GET:['type','page','per_page'],POST:['name','description','homepage','private','has_issues','has_wiki','has_downloads']}},
-        users:{SLICE:2,Δuser:{GET:[],gists:{GET:['page','per_page']},followers:{GET:['page','per_page']},following:{GET:['page','per_page']},orgs:{GET:['page','per_page']},watched:{GET:['page','per_page']},received_events:{GET:['page','per_page']},events:{GET:['page','per_page']},repos:{GET:['type','page','per_page']}}},
-        networks:{SLICE:2,Δuser:{Δrepo:{events:{GET:['page','per_page']}},events:{orgs:{Δorg:{GET:['page','per_page']}}}}},
-        events:{SLICE:1,GET:['page','per_page']}
-    }));
-
-    github.token = 'asdf';
-
-    jQuery.extend({
-        github: github
-
-    });
-
-    /*!
-     * async
-     * https://github.com/caolan/async
-     *
-     * Copyright 2010-2014 Caolan McMahon
-     * Released under the MIT license
-     */
-
-    var nextTick = function (fn) {
-        if (typeof setImmediate === 'function') {
-            setImmediate(fn);
-        } else if (typeof process !== 'undefined' && process.nextTick) {
-            process.nextTick(fn);
-        } else {
-            setTimeout(fn, 0);
-        }
-    };
-
-    var makeIterator = function (tasks) {
-        var makeCallback = function (index) {
-            var fn = function () {
-                if (tasks.length) {
-                    tasks[index].apply(null, arguments);
-                }
-                return fn.next();
-            };
-            fn.next = function () {
-                return (index < tasks.length - 1) ? makeCallback(index + 1) : null;
-            };
-            return fn;
-        };
-        return makeCallback(0);
-    };
-
-    var _isArray = Array.isArray || function (maybeArray) {
-            return Object.prototype.toString.call(maybeArray) === '[object Array]';
-        };
-
-
-    jQuery.extend({
-        waterfall: function (tasks, callback) {
-
-            callback = callback || function () {
-            };
-
-            if (!_isArray(tasks)) {
-                var err = new Error('First argument to waterfall must be an array of functions');
-                return callback(err);
-            }
-
-            if (!tasks.length) {
-                return callback();
-            }
-
-            var wrapIterator = function (iterator) {
-                return function (err) {
-                    if (err) {
-                        callback.apply(null, arguments);
-                        callback = function () {
-                        };
-                    } else {
-                        var args = Array.prototype.slice.call(arguments, 1);
-                        var next = iterator.next();
-                        if (next) {
-                            args.push(wrapIterator(next));
-                        } else {
-                            args.push(callback);
-                        }
-                        nextTick(function () {
-                            iterator.apply(null, args);
-                        });
-                    }
-                };
-            };
-
-            wrapIterator(makeIterator(tasks))();
-        }
-    });
-
-
-    /*!
-     * async
-     * https://github.com/caolan/async
-     *
-     * Copyright 2010-2014 Caolan McMahon
-     * Released under the MIT license
-     */
-
-    function only_once(fn) {
-        var called = false;
-        return function() {
-            if (called) throw new Error("Callback was already called.");
-            called = true;
-            fn.apply(window, arguments);
-        }
-    }
-
-
-
-    var _each = function (arr, iterator) {
-        if (arr.forEach) {
-            return arr.forEach(iterator);
-        }
-        for (var i = 0; i < arr.length; i += 1) {
-            iterator(arr[i], i, arr);
-        }
-    };
-
-    asyncEach = function (arr, iterator, callback) {
-        callback = callback || function () {
-        };
-        if (!arr.length) {
-            return callback();
-        }
-        var completed = 0;
-        _each(arr, function (x) {
-            iterator(x, only_once(done));
-        });
-        function done(err) {
-            if (err) {
-                callback(err);
-                callback = function () {
-                };
-            }
-            else {
-                completed += 1;
-                if (completed >= arr.length) {
-                    callback();
-                }
-            }
-        }
-    };
-
-    jQuery.extend({
-        async: {
-            each: asyncEach
-        }
-    });
-
 
     /**
-     * @license
-     * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
-     * Build: `lodash underscore include="template" exports="none" -o lodash/lo_template.js`
-     * Copyright 2012-2013 The Dojo Foundation <http://dojofoundation.org/>
-     * Based on Underscore.js 1.5.2 <http://underscorejs.org/LICENSE>
-     * Copyright 2009-2013 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
-     * Available under MIT license <http://lodash.com/license>
+     * Gitter is an extension to the github module. It provides several utilities, shortcuts, and stuff i dont know yet
+     *
+     * It requires more dependencies, especially from lodash.
      */
-    (function() {
 
-        
-        var reInterpolate = /<%=([\s\S]+?)%>/g;
 
-        
-        var reNoMatch = /($^)/;
-
-        
-        var reUnescapedString = /['\n\r\t\u2028\u2029\\]/g;
-
-        
-        var objectTypes = {
-            'boolean': false,
-            'function': true,
-            'object': true,
-            'number': false,
-            'string': false,
-            'undefined': false
-        };
-
-        
-        var stringEscapes = {
-            '\\': '\\',
-            "'": "'",
-            '\n': 'n',
-            '\r': 'r',
-            '\t': 't',
-            '\u2028': 'u2028',
-            '\u2029': 'u2029'
-        };
-
-        /*--------------------------------------------------------------------------*/
-
-        /**
-         * Used by `template` to escape characters for inclusion in compiled
-         * string literals.
-         *
-         * @private
-         * @param {string} match The matched character to escape.
-         * @returns {string} Returns the escaped character.
-         */
-        function escapeStringChar(match) {
-            return '\\' + stringEscapes[match];
+    var gitter2 = {
+        user: 'RobinRadic',
+        getRepositories: function (user) {
+            user = user || this.user;
+            $.github.user.repos(user, function (repos) {
+                console.log(repos);
+            });
         }
+    };
 
-        /*--------------------------------------------------------------------------*/
 
-        
-        var objectProto = Object.prototype;
+    var sortMethods = ['size', 'stars', 'watchers', 'forks', 'issues', 'created', 'updated', 'pushed'];
 
-        
-        var toString = objectProto.toString;
+    var gitter = {
+        getSortMethods: function () {
+            return sortMethods;
+        },
 
-        
-        var reNative = RegExp('^' +
-            String(toString)
-                .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-                .replace(/toString| for [^\]]+/g, '.*?') + '$'
-        );
-
-        
-        var hasOwnProperty = objectProto.hasOwnProperty;
-
-        /* Native method shortcuts for methods with the same name as other `lodash` methods */
-        var nativeKeys = isNative(nativeKeys = Object.keys) && nativeKeys;
-
-        /*--------------------------------------------------------------------------*/
-
-        /**
-         * Creates a `lodash` object which wraps the given value to enable intuitive
-         * method chaining.
-         *
-         * In addition to Lo-Dash methods, wrappers also have the following `Array` methods:
-         * `concat`, `join`, `pop`, `push`, `reverse`, `shift`, `slice`, `sort`, `splice`,
-         * and `unshift`
-         *
-         * Chaining is supported in custom builds as long as the `value` method is
-         * implicitly or explicitly included in the build.
-         *
-         * The chainable wrapper functions are:
-         * `after`, `assign`, `bind`, `bindAll`, `bindKey`, `chain`, `compact`,
-         * `compose`, `concat`, `countBy`, `create`, `createCallback`, `curry`,
-         * `debounce`, `defaults`, `defer`, `delay`, `difference`, `filter`, `flatten`,
-         * `forEach`, `forEachRight`, `forIn`, `forInRight`, `forOwn`, `forOwnRight`,
-         * `functions`, `groupBy`, `indexBy`, `initial`, `intersection`, `invert`,
-         * `invoke`, `keys`, `map`, `max`, `memoize`, `merge`, `min`, `object`, `omit`,
-         * `once`, `pairs`, `partial`, `partialRight`, `pick`, `pluck`, `pull`, `push`,
-         * `range`, `reject`, `remove`, `rest`, `reverse`, `shuffle`, `slice`, `sort`,
-         * `sortBy`, `splice`, `tap`, `throttle`, `times`, `toArray`, `transform`,
-         * `union`, `uniq`, `unshift`, `unzip`, `values`, `where`, `without`, `wrap`,
-         * and `zip`
-         *
-         * The non-chainable wrapper functions are:
-         * `clone`, `cloneDeep`, `contains`, `escape`, `every`, `find`, `findIndex`,
-         * `findKey`, `findLast`, `findLastIndex`, `findLastKey`, `has`, `identity`,
-         * `indexOf`, `isArguments`, `isArray`, `isBoolean`, `isDate`, `isElement`,
-         * `isEmpty`, `isEqual`, `isFinite`, `isFunction`, `isNaN`, `isNull`, `isNumber`,
-         * `isObject`, `isPlainObject`, `isRegExp`, `isString`, `isUndefined`, `join`,
-         * `lastIndexOf`, `mixin`, `noConflict`, `parseInt`, `pop`, `random`, `reduce`,
-         * `reduceRight`, `result`, `shift`, `size`, `some`, `sortedIndex`, `runInContext`,
-         * `template`, `unescape`, `uniqueId`, and `value`
-         *
-         * The wrapper functions `first` and `last` return wrapped values when `n` is
-         * provided, otherwise they return unwrapped values.
-         *
-         * Explicit chaining can be enabled by using the `_.chain` method.
-         *
-         * @name _
-         * @constructor
-         * @category Chaining
-         * @param {*} value The value to wrap in a `lodash` instance.
-         * @returns {Object} Returns a `lodash` instance.
-         * @example
-         *
-         * var wrapped = _([1, 2, 3]);
-         *
-         * // returns an unwrapped value
-         * wrapped.reduce(function(sum, num) {
-   *   return sum + num;
-   * });
-         * // => 6
-         *
-         * // returns a wrapped value
-         * var squares = wrapped.map(function(num) {
-   *   return num * num;
-   * });
-         *
-         * _.isArray(squares);
-         * // => false
-         *
-         * _.isArray(squares.value());
-         * // => true
-         */
-        function lodash() {
-            // no operation performed
-        }
-
-        /**
-         * By default, the template delimiters used by Lo-Dash are similar to those in
-         * embedded Ruby (ERB). Change the following template settings to use alternative
-         * delimiters.
-         *
-         * @static
-         * @memberOf _
-         * @type Object
-         */
-        lodash.templateSettings = {
-
-            /**
-             * Used to detect `data` property values to be HTML-escaped.
-             *
-             * @memberOf _.templateSettings
-             * @type RegExp
-             */
-            'escape': /<%-([\s\S]+?)%>/g,
-
-            /**
-             * Used to detect code to be evaluated.
-             *
-             * @memberOf _.templateSettings
-             * @type RegExp
-             */
-            'evaluate': /<%([\s\S]+?)%>/g,
-
-            /**
-             * Used to detect `data` property values to inject.
-             *
-             * @memberOf _.templateSettings
-             * @type RegExp
-             */
-            'interpolate': reInterpolate,
-
-            /**
-             * Used to reference the data object in the template text.
-             *
-             * @memberOf _.templateSettings
-             * @type string
-             */
-            'variable': ''
-        };
-
-        /*--------------------------------------------------------------------------*/
-
-        /**
-         * Used by `escape` to convert characters to HTML entities.
-         *
-         * @private
-         * @param {string} match The matched character to escape.
-         * @returns {string} Returns the escaped character.
-         */
-        function escapeHtmlChar(match) {
-            return htmlEscapes[match];
-        }
-
-        /**
-         * Checks if `value` is a native function.
-         *
-         * @private
-         * @param {*} value The value to check.
-         * @returns {boolean} Returns `true` if the `value` is a native function, else `false`.
-         */
-        function isNative(value) {
-            return typeof value == 'function' && reNative.test(value);
-        }
-
-        /*--------------------------------------------------------------------------*/
-
-        /**
-         * A fallback implementation of `Object.keys` which produces an array of the
-         * given object's own enumerable property names.
-         *
-         * @private
-         * @type Function
-         * @param {Object} object The object to inspect.
-         * @returns {Array} Returns an array of property names.
-         */
-        var shimKeys = function(object) {
-            var index, iterable = object, result = [];
-            if (!iterable) return result;
-            if (!(objectTypes[typeof object])) return result;
-            for (index in iterable) {
-                if (hasOwnProperty.call(iterable, index)) {
-                    result.push(index);
-                }
+        repoTopLanguages: function (languages) {
+            var topLangs = [];
+            for (var k in languages) {
+                topLangs.push([k, languages[k]]);
             }
-            return result
-        };
 
-        /**
-         * Creates an array composed of the own enumerable property names of an object.
-         *
-         * @static
-         * @memberOf _
-         * @category Objects
-         * @param {Object} object The object to inspect.
-         * @returns {Array} Returns an array of property names.
-         * @example
-         *
-         * _.keys({ 'one': 1, 'two': 2, 'three': 3 });
-         * // => ['one', 'two', 'three'] (property order is not guaranteed across environments)
-         */
-        var keys = !nativeKeys ? shimKeys : function(object) {
-            if (!isObject(object)) {
-                return [];
-            }
-            return nativeKeys(object);
-        };
+            topLangs.sort(function (a, b) {
+                return b[1] - a[1];
+            });
+            return topLangs;
+        },
 
-        /**
-         * Used to convert characters to HTML entities:
-         *
-         * Though the `>` character is escaped for symmetry, characters like `>` and `/`
-         * don't require escaping in HTML and have no special meaning unless they're part
-         * of a tag or an unquoted attribute value.
-         * http://mathiasbynens.be/notes/ambiguous-ampersands (under "semi-related fun fact")
-         */
-        var htmlEscapes = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#x27;'
-        };
-
-        
-        var reUnescapedHtml = RegExp('[' + keys(htmlEscapes).join('') + ']', 'g');
-
-        function defaults(object) {
-            if (!object) {
-                return object;
-            }
-            for (var argsIndex = 1, argsLength = arguments.length; argsIndex < argsLength; argsIndex++) {
-                var iterable = arguments[argsIndex];
-                if (iterable) {
-                    for (var key in iterable) {
-                        if (typeof object[key] == 'undefined') {
-                            object[key] = iterable[key];
-                        }
-                    }
+        sortRepository: function (sortMethod, reposData) {
+            var self = this;
+            reposData.sort(function (a, b) {
+                // sorted by last commit
+                if (self.options.sortBy == 'stars') {
+                    return b.stargazers_count - a.stargazers_count;
+                } else {
+                    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
                 }
-            }
-            return object;
-        }
-
-        
-        function isObject(value) {
-            // check if the value is the ECMAScript language type of Object
-            // http://es5.github.io/#x8
-            // and avoid a V8 bug
-            // http://code.google.com/p/v8/issues/detail?id=2291
-            return !!(value && objectTypes[typeof value]);
-        }
-
-        
-        function escape(string) {
-            return string == null ? '' : String(string).replace(reUnescapedHtml, escapeHtmlChar);
-        }
-
-        
-        function template(text, data, options) {
-            var _ = lodash,
-                settings = _.templateSettings;
-
-            text = String(text || '');
-            options = defaults({}, options, settings);
-
-            var index = 0,
-                source = "__p += '",
-                variable = options.variable;
-
-            var reDelimiters = RegExp(
-                (options.escape || reNoMatch).source + '|' +
-                (options.interpolate || reNoMatch).source + '|' +
-                (options.evaluate || reNoMatch).source + '|$'
-                , 'g');
-
-            text.replace(reDelimiters, function(match, escapeValue, interpolateValue, evaluateValue, offset) {
-                source += text.slice(index, offset).replace(reUnescapedString, escapeStringChar);
-                if (escapeValue) {
-                    source += "' +\n_.escape(" + escapeValue + ") +\n'";
-                }
-                if (evaluateValue) {
-                    source += "';\n" + evaluateValue + ";\n__p += '";
-                }
-                if (interpolateValue) {
-                    source += "' +\n((__t = (" + interpolateValue + ")) == null ? '' : __t) +\n'";
-                }
-                index = offset + match.length;
-                return match;
             });
 
-            source += "';\n";
-            if (!variable) {
-                variable = 'obj';
-                source = 'with (' + variable + ' || {}) {\n' + source + '\n}\n';
-            }
-            source = 'function(' + variable + ') {\n' +
-            "var __t, __p = '', __j = Array.prototype.join;\n" +
-            "function print() { __p += __j.call(arguments, '') }\n" +
-            source +
-            'return __p\n}';
 
-            try {
-                var result = Function('_', 'return ' + source)(_);
-            } catch(e) {
-                e.source = source;
-                throw e;
-            }
-            if (data) {
-                return result(data);
-            }
-            result.source = source;
-            return result;
+            return reposData.slice(0, self.options.maxRepos);
         }
+    };
 
-        /*--------------------------------------------------------------------------*/
+    jQuery.github.utils = gitter;
 
-        lodash.defaults = defaults;
-        lodash.keys = keys;
 
-        /*--------------------------------------------------------------------------*/
-
-        lodash.escape = escape;
-        lodash.isObject = isObject;
-        lodash.template = template;
-
-        /*--------------------------------------------------------------------------*/
-
-        /**
-         * The semantic version number.
-         *
-         * @static
-         * @memberOf _
-         * @type string
-         */
-        lodash.VERSION = '2.4.1';
-
-        jQuery.extend({
-            template: lodash.template
-        })
-    }.call(this));
 
 
 // The number of elements contained in the matched element set
