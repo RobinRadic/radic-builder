@@ -6,7 +6,7 @@
   "version": "1.0.0",
   "main": "Gruntfile.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node testing/basic.js"
   },
   "author": "Robin Radic",
   "description": "Build custom js lib version",
@@ -34,6 +34,8 @@
     "grunt-lodash": "^0.3.0",
     "grunt-shell": "^1.1.1",
     "load-grunt-tasks": "^1.0.0",
+    "nodeunit": "^0.9.0",
+    "nodeunit-b": "^4.0.0",
     "requirejs": "2.1.15",
     "time-grunt": "1.0.0"
   }

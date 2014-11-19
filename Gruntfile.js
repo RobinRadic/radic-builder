@@ -104,6 +104,17 @@ module.exports = function (grunt) {
                 src: 'node_modules/jquery/src/jquery.js',
                 dest: 'src/jquery.js'
             },
+            dist2testing: {
+                files: [{
+                    src: 'dist/**/*',
+                    dest: 'testing/'
+                },{
+                    expand: true,
+                    cwd: 'node_modules/nodeunit/examples/browser',
+                    src: '*.js',
+                    dest: 'testing/example'
+                }]
+            },
             test2dist: {
                 files: [
                     {
@@ -129,7 +140,8 @@ module.exports = function (grunt) {
         },
         clean: {
             tmp: ['.tmp'],
-            dist: ['dist']
+            dist: ['dist'],
+            testing: ['testing/dist', 'testing/example']
         },
         uglify: {
             options: {
@@ -200,6 +212,10 @@ module.exports = function (grunt) {
     ]);
 
 
+    grunt.registerTask('test', [
+        'clean:testing',
+        'copy:dist2testing',
+        ]);
 
     grunt.registerTask('serve', function (target) {
         if (target === 'dist') {

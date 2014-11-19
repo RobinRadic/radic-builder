@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title></title>
+
+    
+    <style type="text/css">
+        body {
+    
+            font-family: "Source Code Pro", "Consolas", "Monaco", "Bitstream Vera Sans Mono", "Courier New", Courier, monospace;
+            font-size: 11px;
+        }
+    
+        .bullet {
+            padding: 7px 0;
+        }
+        ul {
+            list-style: none;
+            display: table;
+        }
+        li {
+    
+            list-style-type: none;
+        }
+    
+        li span {
+    
+            font-family: "Source Code Pro", "Consolas", "Monaco", "Bitstream Vera Sans Mono", "Courier New", Courier, monospace;
+            font-size: 11px;
+            display: table-cell;
+            padding: 5px;
+        }
+    
+    
+        .fa {
+            display: table-cell;
+            padding: 2px;
+            text-align: center;
+        }
+        .fa-check{
+            color: green;
+        }
+        .fa-warning{
+            color: #ffb039;
+        }
+        .fa-close{
+            color: red;
+        }
+        .fa-info-circle{
+            color: #64ccff;
+        }
+    
+        .header{
+            font-weight: 700;
+            font-size: 13px;
+        }
+    
+        pre {outline: 1px solid #ccc; padding: 5px; margin: 5px; }
+        .string { color: green; }
+        .number { color: darkorange; }
+        .boolean { color: blue; }
+        .null { color: magenta; }
+        .key { color: red; }
+    </style>
+    <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    
+
+    <style type="text/css">
+        /**
+         * Github widget styles
+         * ------------------------------------------------------------------
+         */
+        .gh-profile-widget {
+          /* followers number */
+          /* List of repositories */ }
+          .gh-profile-widget table.languages-list {
+            font-size: 12px; }
+          .gh-profile-widget {
+            width: 280px;
+            border-radius: 5px;
+            font-size: 16px;
+            font-family: Helvetica;
+            background: #FAFAFA;
+            border-width: 1px 1px 2px;
+            border-style: solid;
+            border-color: #DDD;
+            overflow: hidden; }
+          .gh-profile-widget a {
+            text-decoration: none;
+            color: #444; }
+            .gh-profile-widget a:hover {
+              color: #4183C4; }
+          .gh-profile-widget .name {
+            display: block;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #222; }
+          .gh-profile-widget .error {
+            font-size: 0.8em;
+            color: #444;
+            padding: 10px; }
+          .gh-profile-widget .error span {
+            display: block;
+            border-bottom: 1px solid #DDD;
+            padding-bottom: 5px;
+            margin-bottom: 5px; }
+            .gh-profile-widget .error span.remain {
+              text-align: center;
+              font-weight: bold; }
+          .gh-profile-widget .profile {
+            background: #FFF;
+            overflow: hidden;
+            padding: 15px 10px;
+            padding-bottom: 0; }
+          .gh-profile-widget .stats {
+            padding: 5px; }
+          .gh-profile-widget .languages {
+            position: relative;
+            clear: both;
+            margin: 0 -10px;
+            padding: 10px;
+            border-top: 1px solid #DEDEDE;
+            font-size: 0.8em; }
+          .gh-profile-widget .languages::before {
+            position: absolute;
+            top: -0.7em;
+            background: #FFF;
+            padding-right: 5px;
+            content: 'Top languages';
+            font-style: italic;
+            color: #555; }
+          .gh-profile-widget .languages li {
+            display: inline-block;
+            color: #444;
+            font-weight: bold;
+            margin-left: 10px; }
+            .gh-profile-widget .languages li::after {
+              content: '\2022';
+              margin-left: 10px;
+              color: #999; }
+            .gh-profile-widget .languages li:last-child::after {
+              content: ''; }
+          .gh-profile-widget .followMe {
+            margin-top: 3px; }
+          .gh-profile-widget .follow-button {
+            font-size: 0.8em;
+            color: #333;
+            float: left;
+            padding: 0 10px;
+            line-height: 1.5em;
+            border: 1px solid #D5D5D5;
+            border-radius: 3px;
+            font-weight: bold;
+            background: #EAEAEA;
+            background-image: linear-gradient(#FAFAFA, #EAEAEA);
+            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
+            -moz-user-select: none;
+            -webkit-user-select: none;
+            -ms-user-select: none;
+            user-select: none; }
+          .gh-profile-widget .follow-button:hover {
+            color: inherit;
+            background: #DDD;
+            background-image: linear-gradient(#EEE, #DDD); }
+          .gh-profile-widget .followMe span {
+            position: relative;
+            background: #FFF;
+            margin-left: 8px;
+            padding: 0 5px;
+            color: #444;
+            font-size: 0.8em;
+            border: 1px solid;
+            border-color: #BBB; }
+          .gh-profile-widget .followMe span::before {
+            content: '';
+            position: absolute;
+            display: block;
+            width: 5px;
+            height: 5px;
+            left: -4px;
+            top: 30%;
+            background: inherit;
+            border-left: 1px solid;
+            border-top: 1px solid;
+            border-color: inherit;
+            -moz-transform: rotate(-45deg);
+            -webkit-transform: rotate(-45deg);
+            -ms-transform: rotate(-45deg);
+            transform: rotate(-45deg); }
+          .gh-profile-widget .avatar {
+            width: 64px;
+            height: 64px;
+            float: left;
+            margin: 0 10px 15px 0;
+            margin-left: 0;
+            border-radius: 5px;
+            box-shadow: 0 0 2px 0 #DDD; }
+          .gh-profile-widget .repos {
+            clear: both; }
+          .gh-profile-widget .repos .header {
+            display: block;
+            width: 100%;
+            font-weight: bold;
+            background: #EAEAEA;
+            background-image: linear-gradient(#FAFAFA, #EAEAEA);
+            border: solid #D5D5D5;
+            border-width: 1px 0;
+            color: #555;
+            font-size: 0.8em;
+            padding: 5px 10px; }
+          .gh-profile-widget .repos a {
+            position: relative;
+            display: block;
+            padding: 7px 10px;
+            font-size: 0.9em;
+            border-top: 1px solid #DDD; }
+            .gh-profile-widget .repos a:first-of-type {
+              border: none; }
+          .gh-profile-widget .repos .repo-name {
+            max-width: 280px;
+            font-weight: bold;
+            text-overflow: ellipsis; }
+          .gh-profile-widget .repos .updated {
+            display: block;
+            font-size: 0.75em;
+            font-style: italic;
+            color: #777; }
+          .gh-profile-widget .repos .star {
+            position: absolute;
+            font-size: 0.9em;
+            right: 0.5em;
+            top: 1.1em;
+            color: #888; }
+            .gh-profile-widget .repos .star::after {
+              content: '\a0\2605';
+              font-size: 1.1em;
+              font-weight: bold; }
+        
+        /*# sourceMappingURL=github-profile.css.map */
+        
+    </style>
+</head>
+<body>
+
+
+
+
+
+
+
+<script src="jquery.js"></script>
+
+
+
+<script>
+    var code = $('pre code');
+   // code.html(code.html().replace("\n", ""));
+
+    function line(txt, type){
+
+        var types = {
+            ok: 'check',
+            warning: 'warning',
+            error: 'close',
+            info: 'info-circle'
+        };
+
+        var txtclass = '';
+        if(typeof type === 'undefined'){
+            txtclass = 'class="header"';
+        }
+
+        $('body').append('<div class="bullet"><i class="fa fa-' + types[type] + '">&nbsp;</i><span '+txtclass+'>' + txt + '</span></div>');
+    }
+
+    function error(txt){
+        line(txt, 'error');
+    }
+    function ok(txt){
+        line(txt, 'ok');
+    }
+    function warning(txt){
+        line(txt, 'warning');
+    }
+    function info(txt){
+        line(txt, 'info');
+    }
+    function header(txt){
+        line(txt);
+    }
+
+    function output(inp) {
+        document.body.appendChild(document.createElement('pre')).innerHTML = inp;
+    }
+
+    function syntaxHighlight(json) {
+        console.log('typeof json', typeof json);
+        json = typeof json === 'object' ? JSON.stringify(json, undefined, 4) : json;
+        json = json.replace(/&/g, '&').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+            var cls = 'number';
+            if (/^"/.test(match)) {
+                if (/:$/.test(match)) {
+                    cls = 'key';
+                } else {
+                    cls = 'string';
+                }
+
+
+            } else if (/true|false/.test(match)) {
+                cls = 'boolean';
+            } else if (/null/.test(match)) {
+                cls = 'null';
+            }
+            return '<span class="' + cls + '">' + match + '</span>';
+        });
+    }
+
+    var obj = {a:1, 'b':'foo', c:[false,'false',null, 'null', {d:{e:1.3e5,f:'1.3e5'}}]};
+    var str = JSON.stringify(obj, undefined, 4);
+
+
+    ///output(str);
+
+    function showcode(txt){
+        output(syntaxHighlight(txt));
+    }
+    function showscript(id){
+        showcode(unescape($('#' + id).html()));
+    }
+    /*
+     line('jQuery loaded');
+     line('sadf', 'error');
+     line('sadf', 'ok');
+     line('asdf', 'warning');
+     line('asdf', 'info');
+     */
+</script>
+
+
+<!-- include github.html -->
+<link href="../github-profile.css" rel="stylesheet" />
+<div id="github-profile"></div>
+
+<script src="widgets/github-profile.js"></script>
+<script>
+    $(function(){
+        $('#github-profile').githubProfile({
+            username: 'RobinRadic'
+        });
+    })
+</script>
+
+
+
+</body>
+</html>
