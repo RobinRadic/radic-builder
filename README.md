@@ -50,10 +50,10 @@ build:
 
 Installing etc as usual
 ```sh
-npm install -g grunt-cli # If you haven't got it already
-npm install
-grunt dist # creates a normal and minified version in /dist folder with only the configured modules
-grunt radicbuild # Creates a version with all modules (jquery + radic). Run uglify:dist afterwards for minification
+$ npm install -g grunt-cli # If you haven't got it already
+$ npm install
+$ grunt dist # creates a normal and minified version in /dist folder with only the configured modules
+$ grunt radicbuild # Creates a version with all modules (jquery + radic). Run uglify:dist afterwards for minification
 ```
 
 #### The following authors shared (MIT licensed) code have been either been fully included, partially copied or inspired this project.
