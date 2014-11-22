@@ -150,7 +150,7 @@ module.exports = function (grunt) {
                 }
             },
             html: {
-                src: 'test/index.html',
+                src: 'testing/index.html',
                 dest: 'dist/index.html'
             }
         },
