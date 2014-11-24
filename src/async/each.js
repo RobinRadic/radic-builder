@@ -32,4 +32,6 @@ define([
 
  //   jQuery.async = {};
     jQuery.async.each = each;
+
+    return jQuery;
 });

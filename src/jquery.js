@@ -30,20 +30,23 @@ define([
 	"./offset",
 	"./dimensions",
 
-	"./async",
+	"./wordwrap",
+
 	"./github",
 	"./github-extra",
-	/*"./widgets",
+	"./widgets",
 	"./cookie",
 	"./crypt",
 	"./etag",
-	,
 	"./async",
 	"./async/each",
 	"./async/waterfall",
-	/*"./sprintf",
+	"./sprintf",
 	"./lodash",
-	"./lotemplates",*/
+	"./lotemplates",
+
+	"./spinner",
+
 	//"./utemplates",
 
 	"./deprecated",

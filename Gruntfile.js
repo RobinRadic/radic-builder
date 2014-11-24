@@ -152,6 +152,10 @@ module.exports = function (grunt) {
             html: {
                 src: 'testing/index.html',
                 dest: 'dist/index.html'
+            },
+            js: {
+                src: 'src/intro.js',
+                dest: '.tmp/intro.js'
             }
         },
         clean: {
@@ -171,7 +175,7 @@ module.exports = function (grunt) {
         },
         shell: {
             lodash_collections: {
-                command: 'lodash underscore include=omit,pick,values,keys,where,cloneDeep exports=none -o lodash/lo_collections.js'
+                command: 'lodash underscore include=omit,pick,values,keys,where,cloneDeep,sortBy exports=none -o lodash/lo_collections.js'
             },
             lodash_template: {
                 command: 'lodash underscore include=template exports=none -o lodash/lo_template.js'
@@ -229,6 +233,7 @@ module.exports = function (grunt) {
             'clean:tmp',
             'clean:dist',
             'copy:src2build',
+            'preprocess:js',
             'shell:build',
             'clean:tmp',
             'uglify:dist'
@@ -240,6 +245,7 @@ module.exports = function (grunt) {
         'clean:tmp',
         'clean:dist',
         'copy:src2build',
+        'preprocess:js',
         modulesToBuild,
         'copy:widgets2dist',
         'preprocess:html',

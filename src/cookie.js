@@ -31,8 +31,7 @@ define([
         return expr.toGMTString();
     }
 
-    jQuery.extend({
-        cookie: {
+    jQuery.cookie = {
 
             options: {
                 expire: 2, // day
@@ -87,8 +86,8 @@ define([
                 // console.log(cookie);
                 return document.cookie = cookie;
             }
-        }
-    });
+        };
+
 
 
     return jQuery;
