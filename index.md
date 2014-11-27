@@ -2,19 +2,19 @@
 layout: page
 title: Radic builder
 ---
-##### Status: Development
+[![Build Status](https://secure.travis-ci.org/RobinRadic/radic-builder.svg?branch=master)](https://travis-ci.org/RobinRadic/radic-builder)
+[![GitHub version](https://badge.fury.io/gh/robinradic/radic-builder.svg)](http://badge.fury.io/gh/robinradic/radic-builder)
+[![Goto documentation](http://img.shields.io/badge/goto-documentation-orange.svg)](http://robinradic.github.io/radic-builder)
+[![Goto repository](http://img.shields.io/badge/goto-repository-orange.svg)](https://github.com/robinradic/radic-builder)
+[![License](http://img.shields.io/badge/license-MIT-blue.svg)](http://radic.mit-license.org)
 
 
 #### Purpose:
+Create a library based on jQuery with custom added modules. Both jQuery and the custom modules can be picked by altering the config.yml file. This results in either a smaller or bigger script file.
 
-- **Personal project**. Just playing around and learning some new stuff
-- To better understand jQuery inner workings
-- To build a smaller sizes jQuery library, by removing all unneeded stuff for certain projjects
-- Add some features by extending jQuery
-- Using LoDash build tools to integrate into jQuery
-- Everything should be configurable in the _config.yml file.
+This way it's possible to customise it for individual project requirements.
 
-Main goal is to create a process that makes it possible to only include features that are usefull for any project so the result will be as small as possible.
+Smallest build is around 12kb (4kb minified, 1kb gzip)
 
 
 #### Todo
