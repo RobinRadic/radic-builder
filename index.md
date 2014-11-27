@@ -2,8 +2,8 @@
 layout: page
 title: Radic builder
 ---
-[![Build Status](https://secure.travis-ci.org/RobinRadic/radic-builder.svg?branch=master)](https://travis-ci.org/RobinRadic/radic-builder)
-[![GitHub version](https://badge.fury.io/gh/robinradic/radic-builder.svg)](http://badge.fury.io/gh/robinradic/radic-builder)
+[![Build Status](https://secure.travis-ci.org/RobinRadic%2Fradic-builder.svg?branch=master)](https://travis-ci.org/RobinRadic%2Fradic-builder)
+[![GitHub version](https://badge.fury.io/gh/robinradic%2Fradic-builder.svg)](http://badge.fury.io/gh/robinradic%2Fradic-builder)
 [![Goto documentation](http://img.shields.io/badge/goto-documentation-orange.svg)](http://robinradic.github.io/radic-builder)
 [![Goto repository](http://img.shields.io/badge/goto-repository-orange.svg)](https://github.com/robinradic/radic-builder)
 [![License](http://img.shields.io/badge/license-MIT-blue.svg)](http://radic.mit-license.org)
