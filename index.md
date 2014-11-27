@@ -1,6 +1,3 @@
-Custom JS Library builder
-===================
-
 ##### Status: Development
 
 
@@ -40,7 +37,7 @@ Some tests have been created in /test. Need more work
 #### How to use
 `_config.yml` contains all configuration options. The modules for a custom jQuery can be picked like that.
 
-```yaml
+{% highlight yaml %}
 # - jQuery modules: core, selector,  traversing, callbacks,  deferred, core/ready, data,  queue, queue/delay,
 #                 attributes,  event, event/alias, manipulation,  manipulation/_evalUrl, wrap,  css, css/hiddenVisibleSelectors,
 #                 serialize,  ajax, ajax/xhr, ajax/script, ajax/jsonp, ajax/load, effects,  effects/animatedSelector, offset,  dimensions, deprecated,  exports/amd, exports/global"
@@ -69,16 +66,15 @@ build:
 #    jquery: core, selector, traversing, event, ajax
 #    radic: github, async, lodash, lotemplates
 #    size: 236kb / 64kb (minified)
-
-```
+{% endhighlight %}
 
 Installing etc as usual
-```bash
-$ npm install -g grunt-cli # If you haven't got it already
-$ npm install
-$ grunt dist # creates a normal and minified version in /dist folder with only the configured modules
-$ grunt radicbuild # Creates a version with all modules (jquery + radic). Run uglify:dist afterwards for minification
-```
+{% highlight bash %}
+npm install -g grunt-cli # If you haven't got it already
+npm install
+grunt dist # creates a normal and minified version in /dist folder with only the configured modules
+grunt radicbuild # Creates a version with all modules (jquery + radic). Run uglify:dist afterwards for minification
+{% endhighlight %}
 
 #### File sizes
 Highly depends on what modules you use. Remember, some modules depend on each other and will auto-include themselfs.
