@@ -1,9 +1,4 @@
-/node_modules
-/.tmp
 /.idea
-/.sass-cache
-/backup
-/cookie.js.bak
-/grunt-plugins.txt
-/dist
-/_site
+node_modules
+app
+src
