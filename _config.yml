@@ -1,11 +1,11 @@
-title:            Radic builder
-description:      Custom JS Library builder using jQuery's build method
+title: Radic builder
+description: Custom JS Library builder using jQuery's build method
 
-url: http://robinradic.github.io
+url: //robinradic.github.io
 
 
-layouts:     ./_includes/_layouts
-data_source:  ./_includes/_data
+layouts: ./_includes/_layouts
+data_source: ./_includes/_data
 
 
 
