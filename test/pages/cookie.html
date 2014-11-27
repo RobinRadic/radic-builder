@@ -1,0 +1,102 @@
+<script>
+    // tests:
+    // set cookie
+    // get cookie
+    // set cookie with json
+    // read cookie with json
+
+    $(function () {
+
+
+        $.removeCookie('radic'); // clena up
+
+        function check(n, result, returnRaw) {
+            var retr = $.cookie(n);
+            if(returnRaw){
+                return retr;
+            }
+            if(result === 'undefined'){
+                if(typeof retr === result){
+                    return ok('Cookie has nothing defined');
+                } else {
+                    return error('Cookie still has something defiined:  ' +  retr);
+                }
+            }
+            if (retr === result) {
+                return ok('Cookie "' + n + '" returned: ' + result);
+            } else {
+                return ok('Cookie "' + n + '" returned: ' + retr);
+            }
+        }
+
+        header('Set + Get cookie');
+        info('Setting cookie');
+        showcode("$.cookie('radic', 'great');")
+        info('Get cookie result');
+        showcode("$.cookie('radic');");
+        check('radic', 'great');
+
+
+        header("remove cookie 'radic'");
+        $.removeCookie('radic');
+        check('radic', 'undefined');
+
+
+        header("Set and get json");
+        $.cookie.json = true;
+        $.cookie('radic', { son: 'njso' });
+        var json = check('radic', null, true);
+        showcode(JSON.stringify(json));
+
+
+
+
+        function old() {
+
+
+            header('Starting cookie test');
+            $.cookie('radic', 'awesome')
+            var test1 = $.cookie('radic');
+            if (test1 === 'awesome') {
+                ok("Test 1 returns: " + test1);
+            } else {
+                error('Test 1 fail');
+            }
+
+
+            $.cookie('radic2', {should: 'be', a: 'json', but: 'should', fail: 'cause of defaults'});
+            var test2 = $.cookie('radic2');
+            if (typeof test2.should === 'undefined') {
+                ok("Test 2 does not return imidiately usable json")
+            } else {
+                error('Test 2 fail');
+            }
+
+
+            $.removeCookie('radic');
+            var test3 = $.cookie('radic');
+            if (typeof test3 === 'undefined') {
+                ok('Cookie get removed successfully.')
+            } else {
+                error('Test 3 fail');
+            }
+
+
+            header('Starting json parsing test');
+            showcode("$.cookie('radic3', { should: 'be', a: 'json', but: 'should', fail: 'cause of defaults'}, {" +
+            "json: true" +
+            "});");
+
+
+            $.cookie('radic3', {should: 'be', a: 'json', but: 'should', fail: 'cause of defaults'}, {
+                json: true
+            });
+            var test4 = $.cookie('radic3');
+            if (typeof test4.should === 'undefined') {
+                ok("Test 4 does not return imidiately usable json")
+            } else {
+                error('Test 4 fail');
+            }
+        }
+    })
+</script>

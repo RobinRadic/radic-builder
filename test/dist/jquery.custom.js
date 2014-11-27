@@ -1,3 +1,354 @@
+/**
+ * Copyright (c) 2011-2014 Felix Gnass
+ * Licensed under the MIT license
+ */
+(function(root, factory) {
+
+    /* CommonJS */
+    if (typeof exports == 'object')  module.exports = factory()
+
+    /* AMD module */
+    else if (typeof define == 'function' && define.amd) define(factory)
+
+    /* Browser global */
+    else root.Spinner = factory()
+}
+(this, function() {
+    
+
+    var prefixes = ['webkit', 'Moz', 'ms', 'O'] /* Vendor prefixes */
+        , animations = {} /* Animation rules keyed by their name */
+        , useCssAnimations /* Whether to use CSS animations or setTimeout */
+
+    /**
+     * Utility function to create elements. If no tag name is given,
+     * a DIV is created. Optionally properties can be passed.
+     */
+    function createEl(tag, prop) {
+        var el = document.createElement(tag || 'div')
+            , n
+
+        for(n in prop) el[n] = prop[n]
+        return el
+    }
+
+    /**
+     * Appends children and returns the parent.
+     */
+    function ins(parent /* child1, child2, ...*/) {
+        for (var i=1, n=arguments.length; i<n; i++)
+            parent.appendChild(arguments[i])
+
+        return parent
+    }
+
+    /**
+     * Insert a new stylesheet to hold the @keyframe or VML rules.
+     */
+    var sheet = (function() {
+        var el = createEl('style', {type : 'text/css'})
+        ins(document.getElementsByTagName('head')[0], el)
+        return el.sheet || el.styleSheet
+    }())
+
+    /**
+     * Creates an opacity keyframe animation rule and returns its name.
+     * Since most mobile Webkits have timing issues with animation-delay,
+     * we create separate rules for each line/segment.
+     */
+    function addAnimation(alpha, trail, i, lines) {
+        var name = ['opacity', trail, ~~(alpha*100), i, lines].join('-')
+            , start = 0.01 + i/lines * 100
+            , z = Math.max(1 - (1-alpha) / trail * (100-start), alpha)
+            , prefix = useCssAnimations.substring(0, useCssAnimations.indexOf('Animation')).toLowerCase()
+            , pre = prefix && '-' + prefix + '-' || ''
+
+        if (!animations[name]) {
+            sheet.insertRule(
+                '@' + pre + 'keyframes ' + name + '{' +
+                '0%{opacity:' + z + '}' +
+                start + '%{opacity:' + alpha + '}' +
+                (start+0.01) + '%{opacity:1}' +
+                (start+trail) % 100 + '%{opacity:' + alpha + '}' +
+                '100%{opacity:' + z + '}' +
+                '}', sheet.cssRules.length)
+
+            animations[name] = 1
+        }
+
+        return name
+    }
+
+    /**
+     * Tries various vendor prefixes and returns the first supported property.
+     */
+    function vendor(el, prop) {
+        var s = el.style
+            , pp
+            , i
+
+        prop = prop.charAt(0).toUpperCase() + prop.slice(1)
+        for(i=0; i<prefixes.length; i++) {
+            pp = prefixes[i]+prop
+            if(s[pp] !== undefined) return pp
+        }
+        if(s[prop] !== undefined) return prop
+    }
+
+    /**
+     * Sets multiple style properties at once.
+     */
+    function css(el, prop) {
+        for (var n in prop)
+            el.style[vendor(el, n)||n] = prop[n]
+
+        return el
+    }
+
+    /**
+     * Fills in default values.
+     */
+    function merge(obj) {
+        for (var i=1; i < arguments.length; i++) {
+            var def = arguments[i]
+            for (var n in def)
+                if (obj[n] === undefined) obj[n] = def[n]
+        }
+        return obj
+    }
+
+    /**
+     * Returns the absolute page-offset of the given element.
+     */
+    function pos(el) {
+        var o = { x:el.offsetLeft, y:el.offsetTop }
+        while((el = el.offsetParent))
+            o.x+=el.offsetLeft, o.y+=el.offsetTop
+
+        return o
+    }
+
+    /**
+     * Returns the line color from the given string or array.
+     */
+    function getColor(color, idx) {
+        return typeof color == 'string' ? color : color[idx % color.length]
+    }
+
+    // Built-in defaults
+
+    var defaults = {
+        lines: 12,            // The number of lines to draw
+        length: 7,            // The length of each line
+        width: 5,             // The line thickness
+        radius: 10,           // The radius of the inner circle
+        rotate: 0,            // Rotation offset
+        corners: 1,           // Roundness (0..1)
+        color: '#000',        // #rgb or #rrggbb
+        direction: 1,         // 1: clockwise, -1: counterclockwise
+        speed: 1,             // Rounds per second
+        trail: 100,           // Afterglow percentage
+        opacity: 1/4,         // Opacity of the lines
+        fps: 20,              // Frames per second when using setTimeout()
+        zIndex: 2e9,          // Use a high z-index by default
+        className: 'spinner', // CSS class to assign to the element
+        top: '50%',           // center vertically
+        left: '50%',          // center horizontally
+        position: 'absolute'  // element position
+    }
+
+    /** The constructor */
+    function Spinner(o) {
+        this.opts = merge(o || {}, Spinner.defaults, defaults)
+    }
+
+    // Global defaults that override the built-ins:
+    Spinner.defaults = {}
+
+    merge(Spinner.prototype, {
+
+        /**
+         * Adds the spinner to the given target element. If this instance is already
+         * spinning, it is automatically removed from its previous target b calling
+         * stop() internally.
+         */
+        spin: function(target) {
+            this.stop()
+
+            var self = this
+                , o = self.opts
+                , el = self.el = css(createEl(0, {className: o.className}), {position: o.position, width: 0, zIndex: o.zIndex})
+                , mid = o.radius+o.length+o.width
+
+            css(el, {
+                left: o.left,
+                top: o.top
+            })
+
+            if (target) {
+                target.insertBefore(el, target.firstChild||null)
+            }
+
+            el.setAttribute('role', 'progressbar')
+            self.lines(el, self.opts)
+
+            if (!useCssAnimations) {
+                // No CSS animation support, use setTimeout() instead
+                var i = 0
+                    , start = (o.lines - 1) * (1 - o.direction) / 2
+                    , alpha
+                    , fps = o.fps
+                    , f = fps/o.speed
+                    , ostep = (1-o.opacity) / (f*o.trail / 100)
+                    , astep = f/o.lines
+
+                    ;(function anim() {
+                    i++;
+                    for (var j = 0; j < o.lines; j++) {
+                        alpha = Math.max(1 - (i + (o.lines - j) * astep) % f * ostep, o.opacity)
+
+                        self.opacity(el, j * o.direction + start, alpha, o)
+                    }
+                    self.timeout = self.el && setTimeout(anim, ~~(1000/fps))
+                })()
+            }
+            return self
+        },
+
+        /**
+         * Stops and removes the Spinner.
+         */
+        stop: function() {
+            var el = this.el
+            if (el) {
+                clearTimeout(this.timeout)
+                if (el.parentNode) el.parentNode.removeChild(el)
+                this.el = undefined
+            }
+            return this
+        },
+
+        /**
+         * Internal method that draws the individual lines. Will be overwritten
+         * in VML fallback mode below.
+         */
+        lines: function(el, o) {
+            var i = 0
+                , start = (o.lines - 1) * (1 - o.direction) / 2
+                , seg
+
+            function fill(color, shadow) {
+                return css(createEl(), {
+                    position: 'absolute',
+                    width: (o.length+o.width) + 'px',
+                    height: o.width + 'px',
+                    background: color,
+                    boxShadow: shadow,
+                    transformOrigin: 'left',
+                    transform: 'rotate(' + ~~(360/o.lines*i+o.rotate) + 'deg) translate(' + o.radius+'px' +',0)',
+                    borderRadius: (o.corners * o.width>>1) + 'px'
+                })
+            }
+
+            for (; i < o.lines; i++) {
+                seg = css(createEl(), {
+                    position: 'absolute',
+                    top: 1+~(o.width/2) + 'px',
+                    transform: o.hwaccel ? 'translate3d(0,0,0)' : '',
+                    opacity: o.opacity,
+                    animation: useCssAnimations && addAnimation(o.opacity, o.trail, start + i * o.direction, o.lines) + ' ' + 1/o.speed + 's linear infinite'
+                })
+
+                if (o.shadow) ins(seg, css(fill('#000', '0 0 4px ' + '#000'), {top: 2+'px'}))
+                ins(el, ins(seg, fill(getColor(o.color, i), '0 0 1px rgba(0,0,0,.1)')))
+            }
+            return el
+        },
+
+        /**
+         * Internal method that adjusts the opacity of a single line.
+         * Will be overwritten in VML fallback mode below.
+         */
+        opacity: function(el, i, val) {
+            if (i < el.childNodes.length) el.childNodes[i].style.opacity = val
+        }
+
+    })
+
+
+    function initVML() {
+
+        /* Utility function to create a VML tag */
+        function vml(tag, attr) {
+            return createEl('<' + tag + ' xmlns="urn:schemas-microsoft.com:vml" class="spin-vml">', attr)
+        }
+
+        // No CSS transforms but VML support, add a CSS rule for VML elements:
+        sheet.addRule('.spin-vml', 'behavior:url(#default#VML)')
+
+        Spinner.prototype.lines = function(el, o) {
+            var r = o.length+o.width
+                , s = 2*r
+
+            function grp() {
+                return css(
+                    vml('group', {
+                        coordsize: s + ' ' + s,
+                        coordorigin: -r + ' ' + -r
+                    }),
+                    { width: s, height: s }
+                )
+            }
+
+            var margin = -(o.width+o.length)*2 + 'px'
+                , g = css(grp(), {position: 'absolute', top: margin, left: margin})
+                , i
+
+            function seg(i, dx, filter) {
+                ins(g,
+                    ins(css(grp(), {rotation: 360 / o.lines * i + 'deg', left: ~~dx}),
+                        ins(css(vml('roundrect', {arcsize: o.corners}), {
+                                width: r,
+                                height: o.width,
+                                left: o.radius,
+                                top: -o.width>>1,
+                                filter: filter
+                            }),
+                            vml('fill', {color: getColor(o.color, i), opacity: o.opacity}),
+                            vml('stroke', {opacity: 0}) // transparent stroke to fix color bleeding upon opacity change
+                        )
+                    )
+                )
+            }
+
+            if (o.shadow)
+                for (i = 1; i <= o.lines; i++)
+                    seg(i, -2, 'progid:DXImageTransform.Microsoft.Blur(pixelradius=2,makeshadow=1,shadowopacity=.3)')
+
+            for (i = 1; i <= o.lines; i++) seg(i)
+            return ins(el, g)
+        }
+
+        Spinner.prototype.opacity = function(el, i, val, o) {
+            var c = el.firstChild
+            o = o.shadow && o.lines || 0
+            if (c && i+o < c.childNodes.length) {
+                c = c.childNodes[i+o]; c = c && c.firstChild; c = c && c.firstChild
+                if (c) c.opacity = val
+            }
+        }
+    }
+
+    var probe = css(createEl('group'), {behavior: 'url(#default#VML)'})
+
+    if (!vendor(probe, 'transform') && probe.adj) initVML()
+    else useCssAnimations = vendor(probe, 'animation')
+
+    return Spinner
+
+}));
+
+
 /*!
  * jQuery JavaScript Library vundefined
  * http://jquery.com/
@@ -9,7 +360,7 @@
  * Released under the MIT license
  * http://jquery.org/license
  *
- * Date: 2014-11-19T12:44Z
+ * Date: 2014-11-24T21:31Z
  */
 
 (function( global, factory ) {
@@ -9123,131 +9474,14 @@ jQuery.each( { Height: "height", Width: "width" }, function( name, type ) {
 });
 
 
-    jQuery.async = {};
-var only_once = function (fn) {
-        var called = false;
-        return function () {
-            if (called) throw new Error("Callback was already called.");
-            called = true;
-            fn.apply(window, arguments);
+    function wordwrap(str, width, spaceReplacer) {
+        if (str.length>width) {
+                      str = str.substr(0, width) + spaceReplacer;
         }
+        return str;
     }
 
-var _each = function(arr, iterator) {
-        if (arr.forEach) {
-            return arr.forEach(iterator);
-        }
-        for (var i = 0; i < arr.length; i += 1) {
-            iterator(arr[i], i, arr);
-        }
-    }
-
-
-
-    var each = function (arr, iterator, callback) {
-        callback = callback || function () {
-        };
-
-        if (!arr.length) {
-            return callback();
-        }
-        var completed = 0;
-        _each(arr, function (x) {
-            iterator(x, only_once(done));
-        });
-        function done(err) {
-            if (err) {
-                callback(err);
-                callback = function () {
-                };
-            }
-            else {
-                completed += 1;
-                if (completed >= arr.length) {
-                    callback();
-                }
-            }
-        }
-    };
-
- //   jQuery.async = {};
-    jQuery.async.each = each;
-
-var iterator = function (tasks) {
-        var makeCallback = function (index) {
-            var fn = function () {
-                if (tasks.length) {
-                    tasks[index].apply(null, arguments);
-                }
-                return fn.next();
-            };
-            fn.next = function () {
-                return (index < tasks.length - 1) ? makeCallback(index + 1) : null;
-            };
-            return fn;
-        };
-        return makeCallback(0);
-    }
-
-var nextTick = function (fn) {
-        if (typeof setImmediate === 'function') {
-            setImmediate(fn);
-        } else if (typeof process !== 'undefined' && process.nextTick) {
-            process.nextTick(fn);
-        } else {
-            setTimeout(fn, 0);
-        }
-    }
-
-
-
-
-    var _isArray = Array.isArray || function (maybeArray) {
-            return Object.prototype.toString.call(maybeArray) === '[object Array]';
-        };
-
-    var waterfall = function (tasks, callback) {
-
-        callback = callback || function () { };
-
-        if (_isArray(tasks)) {
-            var err = new Error('First argument to waterfall must be an array of functions');
-            return callback(err);
-        }
-
-        if (!tasks.length) {
-            return callback();
-        }
-
-        var wrapIterator = function (iterator) {
-            return function (err) {
-                if (err) {
-                    callback.apply(null, arguments);
-                    callback = function () {
-                    };
-                } else {
-                    var args = Array.prototype.slice.call(arguments, 1);
-                    var next = iterator.next();
-                    if (next) {
-                        args.push(wrapIterator(next));
-                    } else {
-                        args.push(callback);
-                    }
-                    nextTick(function () {
-                        iterator.apply(null, args);
-                    });
-                }
-            };
-        };
-
-        wrapIterator(makeIterator(tasks))();
-    };
-
-    jQuery.async.waterfall = waterfall;
-
-
-
-
+    jQuery.extend({ wordwrap: wordwrap })
 
 
     var github = (function(GithubClient){
@@ -9699,210 +9933,6 @@ var nextTick = function (fn) {
     jQuery.github = github;
 
 
-
-    var re = {
-        not_string: /[^s]/,
-        number: /[dief]/,
-        text: /^[^\x25]+/,
-        modulo: /^\x25{2}/,
-        placeholder: /^\x25(?:([1-9]\d*)\$|\(([^\)]+)\))?(\+)?(0|'[^$])?(-)?(\d+)?(?:\.(\d+))?([b-fiosuxX])/,
-        key: /^([a-z_][a-z_\d]*)/i,
-        key_access: /^\.([a-z_][a-z_\d]*)/i,
-        index_access: /^\[(\d+)\]/,
-        sign: /^[\+\-]/
-    }
-
-    function sprintf() {
-        var key = arguments[0], cache = sprintf.cache
-        if (!(cache[key] && cache.hasOwnProperty(key))) {
-            cache[key] = sprintf.parse(key)
-        }
-        return sprintf.format.call(null, cache[key], arguments)
-    }
-
-    sprintf.format = function (parse_tree, argv) {
-        var cursor = 1, tree_length = parse_tree.length, node_type = "", arg, output = [], i, k, match, pad, pad_character, pad_length, is_positive = true, sign = ""
-        for (i = 0; i < tree_length; i++) {
-            node_type = get_type(parse_tree[i])
-            if (node_type === "string") {
-                output[output.length] = parse_tree[i]
-            }
-            else if (node_type === "array") {
-                match = parse_tree[i] // convenience purposes only
-                if (match[2]) { // keyword argument
-                    arg = argv[cursor]
-                    for (k = 0; k < match[2].length; k++) {
-                        if (!arg.hasOwnProperty(match[2][k])) {
-                            throw new Error(sprintf("[sprintf] property '%s' does not exist", match[2][k]))
-                        }
-                        arg = arg[match[2][k]]
-                    }
-                }
-                else if (match[1]) { // positional argument (explicit)
-                    arg = argv[match[1]]
-                }
-                else { // positional argument (implicit)
-                    arg = argv[cursor++]
-                }
-
-                if (get_type(arg) == "function") {
-                    arg = arg()
-                }
-
-                if (re.not_string.test(match[8]) && (get_type(arg) != "number" && isNaN(arg))) {
-                    throw new TypeError(sprintf("[sprintf] expecting number but found %s", get_type(arg)))
-                }
-
-                if (re.number.test(match[8])) {
-                    is_positive = arg >= 0
-                }
-
-                switch (match[8]) {
-                    case "b":
-                        arg = arg.toString(2)
-                        break
-                    case "c":
-                        arg = String.fromCharCode(arg)
-                        break
-                    case "d":
-                    case "i":
-                        arg = parseInt(arg, 10)
-                        break
-                    case "e":
-                        arg = match[7] ? arg.toExponential(match[7]) : arg.toExponential()
-                        break
-                    case "f":
-                        arg = match[7] ? parseFloat(arg).toFixed(match[7]) : parseFloat(arg)
-                        break
-                    case "o":
-                        arg = arg.toString(8)
-                        break
-                    case "s":
-                        arg = ((arg = String(arg)) && match[7] ? arg.substring(0, match[7]) : arg)
-                        break
-                    case "u":
-                        arg = arg >>> 0
-                        break
-                    case "x":
-                        arg = arg.toString(16)
-                        break
-                    case "X":
-                        arg = arg.toString(16).toUpperCase()
-                        break
-                }
-                if (re.number.test(match[8]) && (!is_positive || match[3])) {
-                    sign = is_positive ? "+" : "-"
-                    arg = arg.toString().replace(re.sign, "")
-                }
-                else {
-                    sign = ""
-                }
-                pad_character = match[4] ? match[4] === "0" ? "0" : match[4].charAt(1) : " "
-                pad_length = match[6] - (sign + arg).length
-                pad = match[6] ? (pad_length > 0 ? str_repeat(pad_character, pad_length) : "") : ""
-                output[output.length] = match[5] ? sign + arg + pad : (pad_character === "0" ? sign + pad + arg : pad + sign + arg)
-            }
-        }
-        return output.join("")
-    }
-
-    sprintf.cache = {}
-
-    sprintf.parse = function (fmt) {
-        var _fmt = fmt, match = [], parse_tree = [], arg_names = 0
-        while (_fmt) {
-            if ((match = re.text.exec(_fmt)) !== null) {
-                parse_tree[parse_tree.length] = match[0]
-            }
-            else if ((match = re.modulo.exec(_fmt)) !== null) {
-                parse_tree[parse_tree.length] = "%"
-            }
-            else if ((match = re.placeholder.exec(_fmt)) !== null) {
-                if (match[2]) {
-                    arg_names |= 1
-                    var field_list = [], replacement_field = match[2], field_match = []
-                    if ((field_match = re.key.exec(replacement_field)) !== null) {
-                        field_list[field_list.length] = field_match[1]
-                        while ((replacement_field = replacement_field.substring(field_match[0].length)) !== "") {
-                            if ((field_match = re.key_access.exec(replacement_field)) !== null) {
-                                field_list[field_list.length] = field_match[1]
-                            }
-                            else if ((field_match = re.index_access.exec(replacement_field)) !== null) {
-                                field_list[field_list.length] = field_match[1]
-                            }
-                            else {
-                                throw new SyntaxError("[sprintf] failed to parse named argument key")
-                            }
-                        }
-                    }
-                    else {
-                        throw new SyntaxError("[sprintf] failed to parse named argument key")
-                    }
-                    match[2] = field_list
-                }
-                else {
-                    arg_names |= 2
-                }
-                if (arg_names === 3) {
-                    throw new Error("[sprintf] mixing positional and named placeholders is not (yet) supported")
-                }
-                parse_tree[parse_tree.length] = match
-            }
-            else {
-                throw new SyntaxError("[sprintf] unexpected placeholder")
-            }
-            _fmt = _fmt.substring(match[0].length)
-        }
-        return parse_tree
-    }
-
-    var vsprintf = function (fmt, argv, _argv) {
-        _argv = (argv || []).slice(0)
-        _argv.splice(0, 0, fmt)
-        return sprintf.apply(null, _argv)
-    }
-
-    /**
-     * helpers
-     */
-    function get_type(variable) {
-        return Object.prototype.toString.call(variable).slice(8, -1).toLowerCase()
-    }
-
-    function str_repeat(input, multiplier) {
-        return Array(multiplier + 1).join(input)
-    }
-
-    /**
-     * export to either browser or node.js
-
-    if (typeof exports !== "undefined") {
-        exports.sprintf = sprintf
-        exports.vsprintf = vsprintf
-    }
-    else {
-        window.sprintf = sprintf
-        window.vsprintf = vsprintf
-
-        if (typeof define === "function" && define.amd) {
-            define(function () {
-                return {
-                    sprintf: sprintf,
-                    vsprintf: vsprintf
-                }
-            })
-        }
-    }
-     */
-
-    jQuery.extend({
-        sprintf: sprintf,
-        vsprintf: vsprintf
-    });
-
-
-    var document = window.document;
-
     function getDomain() {
         var d = document.domain;
         if (d.substring(0, 4) == "www.") d = d.substring(4, d.length);
@@ -9945,7 +9975,7 @@ var nextTick = function (fn) {
                     try {
                         value = jQuery.parseJSON(value);
                     }
-                    catch(e){
+                    catch (e) {
                         value = jQuery.parseJSON('{ data: ' + value + ' }');
                     }
                 }
@@ -10411,6 +10441,43 @@ var nextTick = function (fn) {
                 }
             }
             return -1;
+        }
+
+        /**
+         * Used by `sortBy` to compare transformed `collection` elements, stable sorting
+         * them in ascending order.
+         *
+         * @private
+         * @param {Object} a The object to compare to `b`.
+         * @param {Object} b The object to compare to `a`.
+         * @returns {number} Returns the sort order indicator of `1` or `-1`.
+         */
+        function compareAscending(a, b) {
+            var ac = a.criteria,
+                bc = b.criteria,
+                index = -1,
+                length = ac.length;
+
+            while (++index < length) {
+                var value = ac[index],
+                    other = bc[index];
+
+                if (value !== other) {
+                    if (value > other || typeof value == 'undefined') {
+                        return 1;
+                    }
+                    if (value < other || typeof other == 'undefined') {
+                        return -1;
+                    }
+                }
+            }
+            // Fixes an `Array#sort` bug in the JS engine embedded in Adobe applications
+            // that causes it, under certain circumstances, to return the same value for
+            // `a` and `b`. See https://github.com/jashkenas/underscore/pull/1247
+            //
+            // This also ensures a stable sort in V8 and other engines.
+            // See http://code.google.com/p/v8/issues/detail?id=90
+            return a.index - b.index;
         }
 
         /**
@@ -11609,6 +11676,135 @@ var nextTick = function (fn) {
         }
 
         /**
+         * Creates an array of values by running each element in the collection
+         * through the callback. The callback is bound to `thisArg` and invoked with
+         * three arguments; (value, index|key, collection).
+         *
+         * If a property name is provided for `callback` the created "_.pluck" style
+         * callback will return the property value of the given element.
+         *
+         * If an object is provided for `callback` the created "_.where" style callback
+         * will return `true` for elements that have the properties of the given object,
+         * else `false`.
+         *
+         * @static
+         * @memberOf _
+         * @alias collect
+         * @category Collections
+         * @param {Array|Object|string} collection The collection to iterate over.
+         * @param {Function|Object|string} [callback=identity] The function called
+         *  per iteration. If a property name or object is provided it will be used
+         *  to create a "_.pluck" or "_.where" style callback, respectively.
+         * @param {*} [thisArg] The `this` binding of `callback`.
+         * @returns {Array} Returns a new array of the results of each `callback` execution.
+         * @example
+         *
+         * _.map([1, 2, 3], function(num) { return num * 3; });
+         * // => [3, 6, 9]
+         *
+         * _.map({ 'one': 1, 'two': 2, 'three': 3 }, function(num) { return num * 3; });
+         * // => [3, 6, 9] (property order is not guaranteed across environments)
+         *
+         * var characters = [
+         *   { 'name': 'barney', 'age': 36 },
+         *   { 'name': 'fred',   'age': 40 }
+         * ];
+         *
+         * // using "_.pluck" callback shorthand
+         * _.map(characters, 'name');
+         * // => ['barney', 'fred']
+         */
+        function map(collection, callback, thisArg) {
+            var index = -1,
+                length = collection ? collection.length : 0;
+
+            callback = createCallback(callback, thisArg, 3);
+            if (typeof length == 'number') {
+                var result = Array(length);
+                while (++index < length) {
+                    result[index] = callback(collection[index], index, collection);
+                }
+            } else {
+                result = [];
+                forOwn(collection, function(value, key, collection) {
+                    result[++index] = callback(value, key, collection);
+                });
+            }
+            return result;
+        }
+
+        /**
+         * Creates an array of elements, sorted in ascending order by the results of
+         * running each element in a collection through the callback. This method
+         * performs a stable sort, that is, it will preserve the original sort order
+         * of equal elements. The callback is bound to `thisArg` and invoked with
+         * three arguments; (value, index|key, collection).
+         *
+         * If a property name is provided for `callback` the created "_.pluck" style
+         * callback will return the property value of the given element.
+         *
+         * If an array of property names is provided for `callback` the collection
+         * will be sorted by each property value.
+         *
+         * If an object is provided for `callback` the created "_.where" style callback
+         * will return `true` for elements that have the properties of the given object,
+         * else `false`.
+         *
+         * @static
+         * @memberOf _
+         * @category Collections
+         * @param {Array|Object|string} collection The collection to iterate over.
+         * @param {Array|Function|Object|string} [callback=identity] The function called
+         *  per iteration. If a property name or object is provided it will be used
+         *  to create a "_.pluck" or "_.where" style callback, respectively.
+         * @param {*} [thisArg] The `this` binding of `callback`.
+         * @returns {Array} Returns a new array of sorted elements.
+         * @example
+         *
+         * _.sortBy([1, 2, 3], function(num) { return Math.sin(num); });
+         * // => [3, 1, 2]
+         *
+         * _.sortBy([1, 2, 3], function(num) { return this.sin(num); }, Math);
+         * // => [3, 1, 2]
+         *
+         * var characters = [
+         *   { 'name': 'barney',  'age': 36 },
+         *   { 'name': 'fred',    'age': 40 },
+         *   { 'name': 'barney',  'age': 26 },
+         *   { 'name': 'fred',    'age': 30 }
+         * ];
+         *
+         * // using "_.pluck" callback shorthand
+         * _.map(_.sortBy(characters, 'age'), _.values);
+         * // => [['barney', 26], ['fred', 30], ['barney', 36], ['fred', 40]]
+         *
+         * // sorting by multiple properties
+         * _.map(_.sortBy(characters, ['name', 'age']), _.values);
+         * // = > [['barney', 26], ['barney', 36], ['fred', 30], ['fred', 40]]
+         */
+        function sortBy(collection, callback, thisArg) {
+            var index = -1,
+                length = collection ? collection.length : 0,
+                result = Array(typeof length == 'number' ? length : 0);
+
+            callback = createCallback(callback, thisArg, 3);
+            forEach(collection, function(value, key, collection) {
+                result[++index] = {
+                    'criteria': [callback(value, key, collection)],
+                    'index': index,
+                    'value': value
+                };
+            });
+
+            length = result.length;
+            result.sort(compareAscending);
+            while (length--) {
+                result[length] = result[length].value;
+            }
+            return result;
+        }
+
+        /**
          * Performs a deep comparison of each element in a `collection` to the given
          * `properties` object, returning an array of all elements that have equivalent
          * property values.
@@ -11897,11 +12093,15 @@ var nextTick = function (fn) {
         lodash.filter = filter;
         lodash.forEach = forEach;
         lodash.keys = keys;
+        lodash.map = map;
         lodash.omit = omit;
         lodash.pick = pick;
+        lodash.sortBy = sortBy;
         lodash.values = values;
         lodash.where = where;
 
+        // add aliases
+        lodash.collect = map;
         lodash.each = forEach;
         lodash.extend = assign;
         lodash.select = filter;
@@ -11941,7 +12141,8 @@ var nextTick = function (fn) {
             omit: lodash.omit,
             pick: lodash.pick,
             values: lodash.values,
-            cloneDeep: lodash.cloneDeep
+            cloneDeep: lodash.cloneDeep,
+            sortBy: lodash.sortBy
         });
 
     }).call(this);
@@ -12005,6 +12206,1352 @@ var nextTick = function (fn) {
     jQuery.github.utils = gitter;
 
 
+
+
+
+    var widget_uuid = 0,
+        widget_slice = Array.prototype.slice;
+
+    jQuery.cleanData = (function( orig ) {
+        return function( elems ) {
+            var events, elem, i;
+            for ( i = 0; (elem = elems[i]) != null; i++ ) {
+                try {
+
+                    // Only trigger remove when necessary to save time
+                    events = jQuery._data( elem, "events" );
+                    if ( events && events.remove ) {
+                        jQuery( elem ).triggerHandler( "remove" );
+                    }
+
+                    // http://bugs.jquery.com/ticket/8235
+                } catch ( e ) {}
+            }
+            orig( elems );
+        };
+    })( jQuery.cleanData );
+
+    jQuery.widget = function( name, base, prototype ) {
+        var fullName, existingConstructor, constructor, basePrototype,
+        // proxiedPrototype allows the provided prototype to remain unmodified
+        // so that it can be used as a mixin for multiple widgets (#8876)
+            proxiedPrototype = {},
+            namespace = name.split( "." )[ 0 ];
+
+        name = name.split( "." )[ 1 ];
+        fullName = namespace + "-" + name;
+
+        if ( !prototype ) {
+            prototype = base;
+            base = jQuery.Widget;
+        }
+
+        // create selector for plugin
+        jQuery.expr[ ":" ][ fullName.toLowerCase() ] = function( elem ) {
+            return !!jQuery.data( elem, fullName );
+        };
+
+        jQuery[ namespace ] = jQuery[ namespace ] || {};
+        existingConstructor = jQuery[ namespace ][ name ];
+        constructor = jQuery[ namespace ][ name ] = function( options, element ) {
+            // allow instantiation without "new" keyword
+            if ( !this._createWidget ) {
+                return new constructor( options, element );
+            }
+
+            // allow instantiation without initializing for simple inheritance
+            // must use "new" keyword (the code above always passes args)
+            if ( arguments.length ) {
+                this._createWidget( options, element );
+            }
+        };
+        // extend with the existing constructor to carry over any static properties
+        jQuery.extend( constructor, existingConstructor, {
+            version: prototype.version,
+            // copy the object used to create the prototype in case we need to
+            // redefine the widget later
+            _proto: jQuery.extend( {}, prototype ),
+            // track widgets that inherit from this widget in case this widget is
+            // redefined after a widget inherits from it
+            _childConstructors: []
+        });
+
+        basePrototype = new base();
+        // we need to make the options hash a property directly on the new instance
+        // otherwise we'll modify the options hash on the prototype that we're
+        // inheriting from
+        basePrototype.options = jQuery.widget.extend( {}, basePrototype.options );
+        jQuery.each( prototype, function( prop, value ) {
+            if ( !jQuery.isFunction( value ) ) {
+                proxiedPrototype[ prop ] = value;
+                return;
+            }
+            proxiedPrototype[ prop ] = (function() {
+                var _super = function() {
+                        return base.prototype[ prop ].apply( this, arguments );
+                    },
+                    _superApply = function( args ) {
+                        return base.prototype[ prop ].apply( this, args );
+                    };
+                return function() {
+                    var __super = this._super,
+                        __superApply = this._superApply,
+                        returnValue;
+
+                    this._super = _super;
+                    this._superApply = _superApply;
+
+                    returnValue = value.apply( this, arguments );
+
+                    this._super = __super;
+                    this._superApply = __superApply;
+
+                    return returnValue;
+                };
+            })();
+        });
+        constructor.prototype = jQuery.widget.extend( basePrototype, {
+            // TODO: remove support for widgetEventPrefix
+            // always use the name + a colon as the prefix, e.g., draggable:start
+            // don't prefix for widgets that aren't DOM-based
+            widgetEventPrefix: existingConstructor ? (basePrototype.widgetEventPrefix || name) : name
+        }, proxiedPrototype, {
+            constructor: constructor,
+            namespace: namespace,
+            widgetName: name,
+            widgetFullName: fullName
+        });
+
+        // If this widget is being redefined then we need to find all widgets that
+        // are inheriting from it and redefine all of them so that they inherit from
+        // the new version of this widget. We're essentially trying to replace one
+        // level in the prototype chain.
+        if ( existingConstructor ) {
+            jQuery.each( existingConstructor._childConstructors, function( i, child ) {
+                var childPrototype = child.prototype;
+
+                // redefine the child widget using the same prototype that was
+                // originally used, but inherit from the new version of the base
+                jQuery.widget( childPrototype.namespace + "." + childPrototype.widgetName, constructor, child._proto );
+            });
+            // remove the list of existing child constructors from the old constructor
+            // so the old child constructors can be garbage collected
+            delete existingConstructor._childConstructors;
+        } else {
+            base._childConstructors.push( constructor );
+        }
+
+        jQuery.widget.bridge( name, constructor );
+
+        return constructor;
+    };
+
+    jQuery.widget.extend = function( target ) {
+        var input = widget_slice.call( arguments, 1 ),
+            inputIndex = 0,
+            inputLength = input.length,
+            key,
+            value;
+        for ( ; inputIndex < inputLength; inputIndex++ ) {
+            for ( key in input[ inputIndex ] ) {
+                value = input[ inputIndex ][ key ];
+                if ( input[ inputIndex ].hasOwnProperty( key ) && value !== undefined ) {
+                    // Clone objects
+                    if ( jQuery.isPlainObject( value ) ) {
+                        target[ key ] = jQuery.isPlainObject( target[ key ] ) ?
+                            jQuery.widget.extend( {}, target[ key ], value ) :
+                            // Don't extend strings, arrays, etc. with objects
+                            jQuery.widget.extend( {}, value );
+                        // Copy everything else by reference
+                    } else {
+                        target[ key ] = value;
+                    }
+                }
+            }
+        }
+        return target;
+    };
+
+    jQuery.widget.bridge = function( name, object ) {
+        var fullName = object.prototype.widgetFullName || name;
+        jQuery.fn[ name ] = function( options ) {
+            var isMethodCall = typeof options === "string",
+                args = widget_slice.call( arguments, 1 ),
+                returnValue = this;
+
+            // allow multiple hashes to be passed on init
+            options = !isMethodCall && args.length ?
+                jQuery.widget.extend.apply( null, [ options ].concat(args) ) :
+                options;
+
+            if ( isMethodCall ) {
+                this.each(function() {
+                    var methodValue,
+                        instance = jQuery.data( this, fullName );
+                    if ( options === "instance" ) {
+                        returnValue = instance;
+                        return false;
+                    }
+                    if ( !instance ) {
+                        return jQuery.error( "cannot call methods on " + name + " prior to initialization; " +
+                        "attempted to call method '" + options + "'" );
+                    }
+                    if ( !jQuery.isFunction( instance[options] ) || options.charAt( 0 ) === "_" ) {
+                        return jQuery.error( "no such method '" + options + "' for " + name + " widget instance" );
+                    }
+                    methodValue = instance[ options ].apply( instance, args );
+                    if ( methodValue !== instance && methodValue !== undefined ) {
+                        returnValue = methodValue && methodValue.jquery ?
+                            returnValue.pushStack( methodValue.get() ) :
+                            methodValue;
+                        return false;
+                    }
+                });
+            } else {
+                this.each(function() {
+                    var instance = jQuery.data( this, fullName );
+                    if ( instance ) {
+                        instance.option( options || {} );
+                        if ( instance._init ) {
+                            instance._init();
+                        }
+                    } else {
+                        jQuery.data( this, fullName, new object( options, this ) );
+                    }
+                });
+            }
+
+            return returnValue;
+        };
+    };
+
+    jQuery.Widget = function( /* options, element */ ) {};
+    jQuery.Widget._childConstructors = [];
+
+    jQuery.Widget.prototype = {
+        widgetName: "widget",
+        widgetEventPrefix: "",
+        defaultElement: "<div>",
+        options: {
+            disabled: false,
+
+            // callbacks
+            create: null
+        },
+        _createWidget: function( options, element ) {
+            element = jQuery( element || this.defaultElement || this )[ 0 ];
+            this.element = jQuery( element );
+            this.uuid = widget_uuid++;
+            this.eventNamespace = "." + this.widgetName + this.uuid;
+
+            this.bindings = jQuery();
+            this.hoverable = jQuery();
+            this.focusable = jQuery();
+
+            if ( element !== this ) {
+                jQuery.data( element, this.widgetFullName, this );
+                this._on( true, this.element, {
+                    remove: function( event ) {
+                        if ( event.target === element ) {
+                            this.destroy();
+                        }
+                    }
+                });
+                this.document = jQuery( element.style ?
+                    // element within the document
+                    element.ownerDocument :
+                    // element is window or document
+                element.document || element );
+                this.window = jQuery( this.document[0].defaultView || this.document[0].parentWindow );
+            }
+
+            this.options = jQuery.widget.extend( {},
+                this.options,
+                this._getCreateOptions(),
+                options );
+
+            this._create();
+            this._trigger( "create", null, this._getCreateEventData() );
+            this._init();
+        },
+        _getCreateOptions: jQuery.noop,
+        _getCreateEventData: jQuery.noop,
+        _create: jQuery.noop,
+        _init: jQuery.noop,
+
+        destroy: function() {
+            this._destroy();
+            // we can probably remove the unbind calls in 2.0
+            // all event bindings should go through this._on()
+            this.element
+                .unbind( this.eventNamespace )
+                .removeData( this.widgetFullName )
+                // support: jquery <1.6.3
+                // http://bugs.jquery.com/ticket/9413
+                .removeData( jQuery.camelCase( this.widgetFullName ) );
+            this.widget()
+                .unbind( this.eventNamespace )
+                .removeAttr( "aria-disabled" )
+                .removeClass(
+                this.widgetFullName + "-disabled " +
+                "ui-state-disabled" );
+
+            // clean up events and states
+            this.bindings.unbind( this.eventNamespace );
+            this.hoverable.removeClass( "ui-state-hover" );
+            this.focusable.removeClass( "ui-state-focus" );
+        },
+        _destroy: jQuery.noop,
+
+        widget: function() {
+            return this.element;
+        },
+
+        option: function( key, value ) {
+            var options = key,
+                parts,
+                curOption,
+                i;
+
+            if ( arguments.length === 0 ) {
+                // don't return a reference to the internal hash
+                return jQuery.widget.extend( {}, this.options );
+            }
+
+            if ( typeof key === "string" ) {
+                // handle nested keys, e.g., "foo.bar" => { foo: { bar: ___ } }
+                options = {};
+                parts = key.split( "." );
+                key = parts.shift();
+                if ( parts.length ) {
+                    curOption = options[ key ] = jQuery.widget.extend( {}, this.options[ key ] );
+                    for ( i = 0; i < parts.length - 1; i++ ) {
+                        curOption[ parts[ i ] ] = curOption[ parts[ i ] ] || {};
+                        curOption = curOption[ parts[ i ] ];
+                    }
+                    key = parts.pop();
+                    if ( arguments.length === 1 ) {
+                        return curOption[ key ] === undefined ? null : curOption[ key ];
+                    }
+                    curOption[ key ] = value;
+                } else {
+                    if ( arguments.length === 1 ) {
+                        return this.options[ key ] === undefined ? null : this.options[ key ];
+                    }
+                    options[ key ] = value;
+                }
+            }
+
+            this._setOptions( options );
+
+            return this;
+        },
+        _setOptions: function( options ) {
+            var key;
+
+            for ( key in options ) {
+                this._setOption( key, options[ key ] );
+            }
+
+            return this;
+        },
+        _setOption: function( key, value ) {
+            this.options[ key ] = value;
+
+            if ( key === "disabled" ) {
+                this.widget()
+                    .toggleClass( this.widgetFullName + "-disabled", !!value );
+
+                // If the widget is becoming disabled, then nothing is interactive
+                if ( value ) {
+                    this.hoverable.removeClass( "ui-state-hover" );
+                    this.focusable.removeClass( "ui-state-focus" );
+                }
+            }
+
+            return this;
+        },
+
+        enable: function() {
+            return this._setOptions({ disabled: false });
+        },
+        disable: function() {
+            return this._setOptions({ disabled: true });
+        },
+
+        _on: function( suppressDisabledCheck, element, handlers ) {
+            var delegateElement,
+                instance = this;
+
+            // no suppressDisabledCheck flag, shuffle arguments
+            if ( typeof suppressDisabledCheck !== "boolean" ) {
+                handlers = element;
+                element = suppressDisabledCheck;
+                suppressDisabledCheck = false;
+            }
+
+            // no element argument, shuffle and use this.element
+            if ( !handlers ) {
+                handlers = element;
+                element = this.element;
+                delegateElement = this.widget();
+            } else {
+                element = delegateElement = jQuery( element );
+                this.bindings = this.bindings.add( element );
+            }
+
+            jQuery.each( handlers, function( event, handler ) {
+                function handlerProxy() {
+                    // allow widgets to customize the disabled handling
+                    // - disabled as an array instead of boolean
+                    // - disabled class as method for disabling individual parts
+                    if ( !suppressDisabledCheck &&
+                        ( instance.options.disabled === true ||
+                        jQuery( this ).hasClass( "ui-state-disabled" ) ) ) {
+                        return;
+                    }
+                    return ( typeof handler === "string" ? instance[ handler ] : handler )
+                        .apply( instance, arguments );
+                }
+
+                // copy the guid so direct unbinding works
+                if ( typeof handler !== "string" ) {
+                    handlerProxy.guid = handler.guid =
+                        handler.guid || handlerProxy.guid || jQuery.guid++;
+                }
+
+                var match = event.match( /^([\w:-]*)\s*(.*)$/ ),
+                    eventName = match[1] + instance.eventNamespace,
+                    selector = match[2];
+                if ( selector ) {
+                    delegateElement.delegate( selector, eventName, handlerProxy );
+                } else {
+                    element.bind( eventName, handlerProxy );
+                }
+            });
+        },
+
+        _off: function( element, eventName ) {
+            eventName = (eventName || "").split( " " ).join( this.eventNamespace + " " ) +
+            this.eventNamespace;
+            element.unbind( eventName ).undelegate( eventName );
+
+            // Clear the stack to avoid memory leaks (#10056)
+            this.bindings = jQuery( this.bindings.not( element ).get() );
+            this.focusable = jQuery( this.focusable.not( element ).get() );
+            this.hoverable = jQuery( this.hoverable.not( element ).get() );
+        },
+
+        _delay: function( handler, delay ) {
+            function handlerProxy() {
+                return ( typeof handler === "string" ? instance[ handler ] : handler )
+                    .apply( instance, arguments );
+            }
+            var instance = this;
+            return setTimeout( handlerProxy, delay || 0 );
+        },
+
+        _hoverable: function( element ) {
+            this.hoverable = this.hoverable.add( element );
+            this._on( element, {
+                mouseenter: function( event ) {
+                    jQuery( event.currentTarget ).addClass( "ui-state-hover" );
+                },
+                mouseleave: function( event ) {
+                    jQuery( event.currentTarget ).removeClass( "ui-state-hover" );
+                }
+            });
+        },
+
+        _focusable: function( element ) {
+            this.focusable = this.focusable.add( element );
+            this._on( element, {
+                focusin: function( event ) {
+                    jQuery( event.currentTarget ).addClass( "ui-state-focus" );
+                },
+                focusout: function( event ) {
+                    jQuery( event.currentTarget ).removeClass( "ui-state-focus" );
+                }
+            });
+        },
+
+        _trigger: function( type, event, data ) {
+            var prop, orig,
+                callback = this.options[ type ];
+
+            data = data || {};
+            event = jQuery.Event( event );
+            event.type = ( type === this.widgetEventPrefix ?
+                type :
+            this.widgetEventPrefix + type ).toLowerCase();
+            // the original event may come from any element
+            // so we need to reset the target on the new event
+            event.target = this.element[ 0 ];
+
+            // copy original event properties over to the new event
+            orig = event.originalEvent;
+            if ( orig ) {
+                for ( prop in orig ) {
+                    if ( !( prop in event ) ) {
+                        event[ prop ] = orig[ prop ];
+                    }
+                }
+            }
+
+            this.element.trigger( event, data );
+            return !( jQuery.isFunction( callback ) &&
+            callback.apply( this.element[0], [ event ].concat( data ) ) === false ||
+            event.isDefaultPrevented() );
+        }
+    };
+
+    jQuery.each( { show: "fadeIn", hide: "fadeOut" }, function( method, defaultEffect ) {
+        jQuery.Widget.prototype[ "_" + method ] = function( element, options, callback ) {
+            if ( typeof options === "string" ) {
+                options = { effect: options };
+            }
+            var hasOptions,
+                effectName = !options ?
+                    method :
+                    options === true || typeof options === "number" ?
+                        defaultEffect :
+                    options.effect || defaultEffect;
+            options = options || {};
+            if ( typeof options === "number" ) {
+                options = { duration: options };
+            }
+            hasOptions = !jQuery.isEmptyObject( options );
+            options.complete = callback;
+            if ( options.delay ) {
+                element.delay( options.delay );
+            }
+            if ( hasOptions && jQuery.effects && jQuery.effects.effect[ effectName ] ) {
+                element[ method ]( options );
+            } else if ( effectName !== method && element[ effectName ] ) {
+                element[ effectName ]( options.duration, options.easing, callback );
+            } else {
+                element.queue(function( next ) {
+                    jQuery( this )[ method ]();
+                    if ( callback ) {
+                        callback.call( element[ 0 ] );
+                    }
+                    next();
+                });
+            }
+        };
+    });
+
+    var widget = jQuery.widget;
+
+
+
+
+
+
+    function defined(val){
+        return typeof val !== 'undefined';
+    }
+
+
+    jQuery.extend({
+        etag: function (name, url, val) {
+            var key = 'github-' + jQuery.crypt.md5(url);
+            var etags = jQuery.cookie(name);
+
+            if (defined(etags)) {
+                if (defined(val)) {
+                    // set etag
+                    etags[key] = val;
+                    $.cookie(name, etags);
+                } else if (defined(etags[key])) {
+                    // get etag
+                    return etags[key];
+                } else {
+                    // get etag, failed
+                    return false;
+                }
+            } else {
+                etags = {};
+                etags[key] = val;
+                $.cookie(name, etags);
+            }
+        }
+    });
+
+
+    jQuery.async = {};
+var only_once = function (fn) {
+        var called = false;
+        return function () {
+            if (called) throw new Error("Callback was already called.");
+            called = true;
+            fn.apply(window, arguments);
+        }
+    }
+
+var _each = function(arr, iterator) {
+        if (arr.forEach) {
+            return arr.forEach(iterator);
+        }
+        for (var i = 0; i < arr.length; i += 1) {
+            iterator(arr[i], i, arr);
+        }
+    }
+
+
+
+    var each = function (arr, iterator, callback) {
+        callback = callback || function () {
+        };
+
+        if (!arr.length) {
+            return callback();
+        }
+        var completed = 0;
+        _each(arr, function (x) {
+            iterator(x, only_once(done));
+        });
+        function done(err) {
+            if (err) {
+                callback(err);
+                callback = function () {
+                };
+            }
+            else {
+                completed += 1;
+                if (completed >= arr.length) {
+                    callback();
+                }
+            }
+        }
+    };
+
+ //   jQuery.async = {};
+    jQuery.async.each = each;
+
+
+
+        var nextTick = function (fn) {
+            if (typeof setImmediate === 'function') {
+                setImmediate(fn);
+            } else if (typeof process !== 'undefined' && process.nextTick) {
+                process.nextTick(fn);
+            } else {
+                setTimeout(fn, 0);
+            }
+        };
+
+        var makeIterator = function (tasks) {
+            var makeCallback = function (index) {
+                var fn = function () {
+                    if (tasks.length) {
+                        tasks[index].apply(null, arguments);
+                    }
+                    return fn.next();
+                };
+                fn.next = function () {
+                    return (index < tasks.length - 1) ? makeCallback(index + 1): null;
+                };
+                return fn;
+            };
+            return makeCallback(0);
+        };
+
+        var _isArray = Array.isArray || function(maybeArray){
+                return Object.prototype.toString.call(maybeArray) === '[object Array]';
+            };
+
+        var waterfall = function (tasks, callback) {
+            callback = callback || function () {};
+            if (!_isArray(tasks)) {
+                var err = new Error('First argument to waterfall must be an array of functions');
+                return callback(err);
+            }
+            if (!tasks.length) {
+                return callback();
+            }
+            var wrapIterator = function (iterator) {
+                return function (err) {
+                    if (err) {
+                        callback.apply(null, arguments);
+                        callback = function () {};
+                    } else {
+                        var args = Array.prototype.slice.call(arguments, 1);
+                        var next = iterator.next();
+                        if (next) {
+                            args.push(wrapIterator(next));
+                        } else {
+                            args.push(callback);
+                        }
+                        nextTick(function () {
+                            iterator.apply(null, args);
+                        });
+                    }
+                };
+            };
+            wrapIterator(makeIterator(tasks))();
+        };
+
+            jQuery.async.waterfall = waterfall;
+
+
+
+
+
+
+
+
+
+
+    var re = {
+        not_string: /[^s]/,
+        number: /[dief]/,
+        text: /^[^\x25]+/,
+        modulo: /^\x25{2}/,
+        placeholder: /^\x25(?:([1-9]\d*)\$|\(([^\)]+)\))?(\+)?(0|'[^$])?(-)?(\d+)?(?:\.(\d+))?([b-fiosuxX])/,
+        key: /^([a-z_][a-z_\d]*)/i,
+        key_access: /^\.([a-z_][a-z_\d]*)/i,
+        index_access: /^\[(\d+)\]/,
+        sign: /^[\+\-]/
+    }
+
+    function sprintf() {
+        var key = arguments[0], cache = sprintf.cache
+        if (!(cache[key] && cache.hasOwnProperty(key))) {
+            cache[key] = sprintf.parse(key)
+        }
+        return sprintf.format.call(null, cache[key], arguments)
+    }
+
+    sprintf.format = function (parse_tree, argv) {
+        var cursor = 1, tree_length = parse_tree.length, node_type = "", arg, output = [], i, k, match, pad, pad_character, pad_length, is_positive = true, sign = ""
+        for (i = 0; i < tree_length; i++) {
+            node_type = get_type(parse_tree[i])
+            if (node_type === "string") {
+                output[output.length] = parse_tree[i]
+            }
+            else if (node_type === "array") {
+                match = parse_tree[i] // convenience purposes only
+                if (match[2]) { // keyword argument
+                    arg = argv[cursor]
+                    for (k = 0; k < match[2].length; k++) {
+                        if (!arg.hasOwnProperty(match[2][k])) {
+                            throw new Error(sprintf("[sprintf] property '%s' does not exist", match[2][k]))
+                        }
+                        arg = arg[match[2][k]]
+                    }
+                }
+                else if (match[1]) { // positional argument (explicit)
+                    arg = argv[match[1]]
+                }
+                else { // positional argument (implicit)
+                    arg = argv[cursor++]
+                }
+
+                if (get_type(arg) == "function") {
+                    arg = arg()
+                }
+
+                if (re.not_string.test(match[8]) && (get_type(arg) != "number" && isNaN(arg))) {
+                    throw new TypeError(sprintf("[sprintf] expecting number but found %s", get_type(arg)))
+                }
+
+                if (re.number.test(match[8])) {
+                    is_positive = arg >= 0
+                }
+
+                switch (match[8]) {
+                    case "b":
+                        arg = arg.toString(2)
+                        break
+                    case "c":
+                        arg = String.fromCharCode(arg)
+                        break
+                    case "d":
+                    case "i":
+                        arg = parseInt(arg, 10)
+                        break
+                    case "e":
+                        arg = match[7] ? arg.toExponential(match[7]) : arg.toExponential()
+                        break
+                    case "f":
+                        arg = match[7] ? parseFloat(arg).toFixed(match[7]) : parseFloat(arg)
+                        break
+                    case "o":
+                        arg = arg.toString(8)
+                        break
+                    case "s":
+                        arg = ((arg = String(arg)) && match[7] ? arg.substring(0, match[7]) : arg)
+                        break
+                    case "u":
+                        arg = arg >>> 0
+                        break
+                    case "x":
+                        arg = arg.toString(16)
+                        break
+                    case "X":
+                        arg = arg.toString(16).toUpperCase()
+                        break
+                }
+                if (re.number.test(match[8]) && (!is_positive || match[3])) {
+                    sign = is_positive ? "+" : "-"
+                    arg = arg.toString().replace(re.sign, "")
+                }
+                else {
+                    sign = ""
+                }
+                pad_character = match[4] ? match[4] === "0" ? "0" : match[4].charAt(1) : " "
+                pad_length = match[6] - (sign + arg).length
+                pad = match[6] ? (pad_length > 0 ? str_repeat(pad_character, pad_length) : "") : ""
+                output[output.length] = match[5] ? sign + arg + pad : (pad_character === "0" ? sign + pad + arg : pad + sign + arg)
+            }
+        }
+        return output.join("")
+    }
+
+    sprintf.cache = {}
+
+    sprintf.parse = function (fmt) {
+        var _fmt = fmt, match = [], parse_tree = [], arg_names = 0
+        while (_fmt) {
+            if ((match = re.text.exec(_fmt)) !== null) {
+                parse_tree[parse_tree.length] = match[0]
+            }
+            else if ((match = re.modulo.exec(_fmt)) !== null) {
+                parse_tree[parse_tree.length] = "%"
+            }
+            else if ((match = re.placeholder.exec(_fmt)) !== null) {
+                if (match[2]) {
+                    arg_names |= 1
+                    var field_list = [], replacement_field = match[2], field_match = []
+                    if ((field_match = re.key.exec(replacement_field)) !== null) {
+                        field_list[field_list.length] = field_match[1]
+                        while ((replacement_field = replacement_field.substring(field_match[0].length)) !== "") {
+                            if ((field_match = re.key_access.exec(replacement_field)) !== null) {
+                                field_list[field_list.length] = field_match[1]
+                            }
+                            else if ((field_match = re.index_access.exec(replacement_field)) !== null) {
+                                field_list[field_list.length] = field_match[1]
+                            }
+                            else {
+                                throw new SyntaxError("[sprintf] failed to parse named argument key")
+                            }
+                        }
+                    }
+                    else {
+                        throw new SyntaxError("[sprintf] failed to parse named argument key")
+                    }
+                    match[2] = field_list
+                }
+                else {
+                    arg_names |= 2
+                }
+                if (arg_names === 3) {
+                    throw new Error("[sprintf] mixing positional and named placeholders is not (yet) supported")
+                }
+                parse_tree[parse_tree.length] = match
+            }
+            else {
+                throw new SyntaxError("[sprintf] unexpected placeholder")
+            }
+            _fmt = _fmt.substring(match[0].length)
+        }
+        return parse_tree
+    }
+
+    var vsprintf = function (fmt, argv, _argv) {
+        _argv = (argv || []).slice(0)
+        _argv.splice(0, 0, fmt)
+        return sprintf.apply(null, _argv)
+    }
+
+    /**
+     * helpers
+     */
+    function get_type(variable) {
+        return Object.prototype.toString.call(variable).slice(8, -1).toLowerCase()
+    }
+
+    function str_repeat(input, multiplier) {
+        return Array(multiplier + 1).join(input)
+    }
+
+    /**
+     * export to either browser or node.js
+
+    if (typeof exports !== "undefined") {
+        exports.sprintf = sprintf
+        exports.vsprintf = vsprintf
+    }
+    else {
+        window.sprintf = sprintf
+        window.vsprintf = vsprintf
+
+        if (typeof define === "function" && define.amd) {
+            define(function () {
+                return {
+                    sprintf: sprintf,
+                    vsprintf: vsprintf
+                }
+            })
+        }
+    }
+     */
+
+    jQuery.extend({
+        sprintf: sprintf,
+        vsprintf: vsprintf
+    });
+
+
+    /**
+     * @license
+     * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
+     * Build: `lodash underscore include="template" exports="none" -o lodash/lo_template.js`
+     * Copyright 2012-2013 The Dojo Foundation <http://dojofoundation.org/>
+     * Based on Underscore.js 1.5.2 <http://underscorejs.org/LICENSE>
+     * Copyright 2009-2013 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+     * Available under MIT license <http://lodash.com/license>
+     */
+    (function() {
+
+        
+        var reInterpolate = /<%=([\s\S]+?)%>/g;
+
+        
+        var reNoMatch = /($^)/;
+
+        
+        var reUnescapedString = /['\n\r\t\u2028\u2029\\]/g;
+
+        
+        var objectTypes = {
+            'boolean': false,
+            'function': true,
+            'object': true,
+            'number': false,
+            'string': false,
+            'undefined': false
+        };
+
+        
+        var stringEscapes = {
+            '\\': '\\',
+            "'": "'",
+            '\n': 'n',
+            '\r': 'r',
+            '\t': 't',
+            '\u2028': 'u2028',
+            '\u2029': 'u2029'
+        };
+
+        /*--------------------------------------------------------------------------*/
+
+        /**
+         * Used by `template` to escape characters for inclusion in compiled
+         * string literals.
+         *
+         * @private
+         * @param {string} match The matched character to escape.
+         * @returns {string} Returns the escaped character.
+         */
+        function escapeStringChar(match) {
+            return '\\' + stringEscapes[match];
+        }
+
+        /*--------------------------------------------------------------------------*/
+
+        
+        var objectProto = Object.prototype;
+
+        
+        var toString = objectProto.toString;
+
+        
+        var reNative = RegExp('^' +
+            String(toString)
+                .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+                .replace(/toString| for [^\]]+/g, '.*?') + '$'
+        );
+
+        
+        var hasOwnProperty = objectProto.hasOwnProperty;
+
+        /* Native method shortcuts for methods with the same name as other `lodash` methods */
+        var nativeKeys = isNative(nativeKeys = Object.keys) && nativeKeys;
+
+        /*--------------------------------------------------------------------------*/
+
+        /**
+         * Creates a `lodash` object which wraps the given value to enable intuitive
+         * method chaining.
+         *
+         * In addition to Lo-Dash methods, wrappers also have the following `Array` methods:
+         * `concat`, `join`, `pop`, `push`, `reverse`, `shift`, `slice`, `sort`, `splice`,
+         * and `unshift`
+         *
+         * Chaining is supported in custom builds as long as the `value` method is
+         * implicitly or explicitly included in the build.
+         *
+         * The chainable wrapper functions are:
+         * `after`, `assign`, `bind`, `bindAll`, `bindKey`, `chain`, `compact`,
+         * `compose`, `concat`, `countBy`, `create`, `createCallback`, `curry`,
+         * `debounce`, `defaults`, `defer`, `delay`, `difference`, `filter`, `flatten`,
+         * `forEach`, `forEachRight`, `forIn`, `forInRight`, `forOwn`, `forOwnRight`,
+         * `functions`, `groupBy`, `indexBy`, `initial`, `intersection`, `invert`,
+         * `invoke`, `keys`, `map`, `max`, `memoize`, `merge`, `min`, `object`, `omit`,
+         * `once`, `pairs`, `partial`, `partialRight`, `pick`, `pluck`, `pull`, `push`,
+         * `range`, `reject`, `remove`, `rest`, `reverse`, `shuffle`, `slice`, `sort`,
+         * `sortBy`, `splice`, `tap`, `throttle`, `times`, `toArray`, `transform`,
+         * `union`, `uniq`, `unshift`, `unzip`, `values`, `where`, `without`, `wrap`,
+         * and `zip`
+         *
+         * The non-chainable wrapper functions are:
+         * `clone`, `cloneDeep`, `contains`, `escape`, `every`, `find`, `findIndex`,
+         * `findKey`, `findLast`, `findLastIndex`, `findLastKey`, `has`, `identity`,
+         * `indexOf`, `isArguments`, `isArray`, `isBoolean`, `isDate`, `isElement`,
+         * `isEmpty`, `isEqual`, `isFinite`, `isFunction`, `isNaN`, `isNull`, `isNumber`,
+         * `isObject`, `isPlainObject`, `isRegExp`, `isString`, `isUndefined`, `join`,
+         * `lastIndexOf`, `mixin`, `noConflict`, `parseInt`, `pop`, `random`, `reduce`,
+         * `reduceRight`, `result`, `shift`, `size`, `some`, `sortedIndex`, `runInContext`,
+         * `template`, `unescape`, `uniqueId`, and `value`
+         *
+         * The wrapper functions `first` and `last` return wrapped values when `n` is
+         * provided, otherwise they return unwrapped values.
+         *
+         * Explicit chaining can be enabled by using the `_.chain` method.
+         *
+         * @name _
+         * @constructor
+         * @category Chaining
+         * @param {*} value The value to wrap in a `lodash` instance.
+         * @returns {Object} Returns a `lodash` instance.
+         * @example
+         *
+         * var wrapped = _([1, 2, 3]);
+         *
+         * // returns an unwrapped value
+         * wrapped.reduce(function(sum, num) {
+   *   return sum + num;
+   * });
+         * // => 6
+         *
+         * // returns a wrapped value
+         * var squares = wrapped.map(function(num) {
+   *   return num * num;
+   * });
+         *
+         * _.isArray(squares);
+         * // => false
+         *
+         * _.isArray(squares.value());
+         * // => true
+         */
+        function lodash() {
+            // no operation performed
+        }
+
+        /**
+         * By default, the template delimiters used by Lo-Dash are similar to those in
+         * embedded Ruby (ERB). Change the following template settings to use alternative
+         * delimiters.
+         *
+         * @static
+         * @memberOf _
+         * @type Object
+         */
+        lodash.templateSettings = {
+
+            /**
+             * Used to detect `data` property values to be HTML-escaped.
+             *
+             * @memberOf _.templateSettings
+             * @type RegExp
+             */
+            'escape': /<%-([\s\S]+?)%>/g,
+
+            /**
+             * Used to detect code to be evaluated.
+             *
+             * @memberOf _.templateSettings
+             * @type RegExp
+             */
+            'evaluate': /<%([\s\S]+?)%>/g,
+
+            /**
+             * Used to detect `data` property values to inject.
+             *
+             * @memberOf _.templateSettings
+             * @type RegExp
+             */
+            'interpolate': reInterpolate,
+
+            /**
+             * Used to reference the data object in the template text.
+             *
+             * @memberOf _.templateSettings
+             * @type string
+             */
+            'variable': ''
+        };
+
+        /*--------------------------------------------------------------------------*/
+
+        /**
+         * Used by `escape` to convert characters to HTML entities.
+         *
+         * @private
+         * @param {string} match The matched character to escape.
+         * @returns {string} Returns the escaped character.
+         */
+        function escapeHtmlChar(match) {
+            return htmlEscapes[match];
+        }
+
+        /**
+         * Checks if `value` is a native function.
+         *
+         * @private
+         * @param {*} value The value to check.
+         * @returns {boolean} Returns `true` if the `value` is a native function, else `false`.
+         */
+        function isNative(value) {
+            return typeof value == 'function' && reNative.test(value);
+        }
+
+        /*--------------------------------------------------------------------------*/
+
+        /**
+         * A fallback implementation of `Object.keys` which produces an array of the
+         * given object's own enumerable property names.
+         *
+         * @private
+         * @type Function
+         * @param {Object} object The object to inspect.
+         * @returns {Array} Returns an array of property names.
+         */
+        var shimKeys = function(object) {
+            var index, iterable = object, result = [];
+            if (!iterable) return result;
+            if (!(objectTypes[typeof object])) return result;
+            for (index in iterable) {
+                if (hasOwnProperty.call(iterable, index)) {
+                    result.push(index);
+                }
+            }
+            return result
+        };
+
+        /**
+         * Creates an array composed of the own enumerable property names of an object.
+         *
+         * @static
+         * @memberOf _
+         * @category Objects
+         * @param {Object} object The object to inspect.
+         * @returns {Array} Returns an array of property names.
+         * @example
+         *
+         * _.keys({ 'one': 1, 'two': 2, 'three': 3 });
+         * // => ['one', 'two', 'three'] (property order is not guaranteed across environments)
+         */
+        var keys = !nativeKeys ? shimKeys : function(object) {
+            if (!isObject(object)) {
+                return [];
+            }
+            return nativeKeys(object);
+        };
+
+        /**
+         * Used to convert characters to HTML entities:
+         *
+         * Though the `>` character is escaped for symmetry, characters like `>` and `/`
+         * don't require escaping in HTML and have no special meaning unless they're part
+         * of a tag or an unquoted attribute value.
+         * http://mathiasbynens.be/notes/ambiguous-ampersands (under "semi-related fun fact")
+         */
+        var htmlEscapes = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#x27;'
+        };
+
+        
+        var reUnescapedHtml = RegExp('[' + keys(htmlEscapes).join('') + ']', 'g');
+
+        function defaults(object) {
+            if (!object) {
+                return object;
+            }
+            for (var argsIndex = 1, argsLength = arguments.length; argsIndex < argsLength; argsIndex++) {
+                var iterable = arguments[argsIndex];
+                if (iterable) {
+                    for (var key in iterable) {
+                        if (typeof object[key] == 'undefined') {
+                            object[key] = iterable[key];
+                        }
+                    }
+                }
+            }
+            return object;
+        }
+
+        
+        function isObject(value) {
+            // check if the value is the ECMAScript language type of Object
+            // http://es5.github.io/#x8
+            // and avoid a V8 bug
+            // http://code.google.com/p/v8/issues/detail?id=2291
+            return !!(value && objectTypes[typeof value]);
+        }
+
+        
+        function escape(string) {
+            return string == null ? '' : String(string).replace(reUnescapedHtml, escapeHtmlChar);
+        }
+
+        
+        function template(text, data, options) {
+            var _ = lodash,
+                settings = _.templateSettings;
+
+            text = String(text || '');
+            options = defaults({}, options, settings);
+
+            var index = 0,
+                source = "__p += '",
+                variable = options.variable;
+
+            var reDelimiters = RegExp(
+                (options.escape || reNoMatch).source + '|' +
+                (options.interpolate || reNoMatch).source + '|' +
+                (options.evaluate || reNoMatch).source + '|$'
+                , 'g');
+
+            text.replace(reDelimiters, function(match, escapeValue, interpolateValue, evaluateValue, offset) {
+                source += text.slice(index, offset).replace(reUnescapedString, escapeStringChar);
+                if (escapeValue) {
+                    source += "' +\n_.escape(" + escapeValue + ") +\n'";
+                }
+                if (evaluateValue) {
+                    source += "';\n" + evaluateValue + ";\n__p += '";
+                }
+                if (interpolateValue) {
+                    source += "' +\n((__t = (" + interpolateValue + ")) == null ? '' : __t) +\n'";
+                }
+                index = offset + match.length;
+                return match;
+            });
+
+            source += "';\n";
+            if (!variable) {
+                variable = 'obj';
+                source = 'with (' + variable + ' || {}) {\n' + source + '\n}\n';
+            }
+            source = 'function(' + variable + ') {\n' +
+            "var __t, __p = '', __j = Array.prototype.join;\n" +
+            "function print() { __p += __j.call(arguments, '') }\n" +
+            source +
+            'return __p\n}';
+
+            try {
+                var result = Function('_', 'return ' + source)(_);
+            } catch(e) {
+                e.source = source;
+                throw e;
+            }
+            if (data) {
+                return result(data);
+            }
+            result.source = source;
+            return result;
+        }
+
+        /*--------------------------------------------------------------------------*/
+
+        lodash.defaults = defaults;
+        lodash.keys = keys;
+
+        /*--------------------------------------------------------------------------*/
+
+        lodash.escape = escape;
+        lodash.isObject = isObject;
+        lodash.template = template;
+
+        /*--------------------------------------------------------------------------*/
+
+        /**
+         * The semantic version number.
+         *
+         * @static
+         * @memberOf _
+         * @type string
+         */
+        lodash.VERSION = '2.4.1';
+
+        jQuery.extend({
+            template: lodash.template
+        })
+    }.call(this));
+
+
+    /*
+
+     Basic Usage:
+     ============
+
+     $('#el').spin(); // Creates a default Spinner using the text color of #el.
+     $('#el').spin({ ... }); // Creates a Spinner using the provided options.
+
+     $('#el').spin(false); // Stops and removes the spinner.
+
+     Using Presets:
+     ==============
+
+     $('#el').spin('small'); // Creates a 'small' Spinner using the text color of #el.
+     $('#el').spin('large', '#fff'); // Creates a 'large' white Spinner.
+
+     Adding a custom preset:
+     =======================
+
+     $.fn.spin.presets.flower = {
+     lines: 9
+     length: 10
+     width: 20
+     radius: 0
+     }
+
+     $('#el').spin('flower', 'red');
+
+     */
+
+    jQuery.fn.spin = function(opts, color) {
+
+        return this.each(function() {
+            var $this = $(this),
+                data = $this.data();
+
+            if (data.spinner) {
+                data.spinner.stop();
+                delete data.spinner;
+            }
+            if (opts !== false) {
+                opts = $.extend(
+                    { color: color || $this.css('color') },
+                    $.fn.spin.presets[opts] || opts
+                )
+                data.spinner = new Spinner(opts).spin(this)
+            }
+        })
+    };
+
+    jQuery.fn.spin.presets = {
+        tiny: { lines: 8, length: 2, width: 2, radius: 3 },
+        small: { lines: 8, length: 4, width: 3, radius: 5 },
+        large: { lines: 10, length: 8, width: 4, radius: 8 }
+    };
 
 
 // The number of elements contained in the matched element set

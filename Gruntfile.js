@@ -1,7 +1,7 @@
 /*global module:false*/
 module.exports = function (grunt) {
 
-    //require('./tasks/radicbuilder')(grunt);
+    //require('./tasks/testbuilder')(grunt);
 
     require('load-grunt-tasks')(grunt);
     require('time-grunt')(grunt);
@@ -50,24 +50,7 @@ module.exports = function (grunt) {
                         'dist'
                     ]
                 }
-            }/*
-             test: {
-             options: {
-             port: 9001,
-             base: [
-             '.tmp',
-             'test',
-             '<%= config.app %>'
-             ]
-             }
-             },
-             dist: {
-             options: {
-             open: true,
-             base: '<%= config.dist %>',
-             livereload: false
-             }
-             }*/
+            }
         },
 
         build: {
@@ -105,43 +88,21 @@ module.exports = function (grunt) {
                     }
                 ]
             },
-            widgets2dist: {
-                files: [
-                    {
-                        expand: true,
-                        cwd: 'widgets',
-                        src: ['**'],
-                        dest: 'dist/widgets'
-                    }
-                ]
-
-            },
             jquery2src: {
                 src: 'node_modules/jquery/src/jquery.js',
                 dest: 'src/jquery.js'
             },
             dist2testing: {
                 files: [{
-                    src: 'dist/**/*',
-                    dest: 'testing/'
+                    src: 'dist/**',
+                    dest: 'test/'
                 }, {
                     expand: true,
                     cwd: 'node_modules/nodeunit/examples/browser',
                     src: '*.js',
-                    dest: 'testing/example'
+                    dest: 'test/example'
                 }]
-            },
-            test2dist: {
-                files: [
-                    {
-                        expand: true,
-                        cwd: 'test',
-                        src: ['prism.css', 'prism.js'],
-                        dest: 'dist/'
-                    }
-                ]
             }
-
         },
         preprocess: {
             options: {
@@ -150,7 +111,7 @@ module.exports = function (grunt) {
                 }
             },
             html: {
-                src: 'testing/index.html',
+                src: 'test/pages/index.html',
                 dest: 'dist/index.html'
             },
             js: {
@@ -161,7 +122,7 @@ module.exports = function (grunt) {
         clean: {
             tmp: ['.tmp'],
             dist: ['dist'],
-            testing: ['testing/dist', 'testing/example']
+            testing: ['test/dist', 'test/example']
         },
         uglify: {
             options: {
@@ -181,7 +142,7 @@ module.exports = function (grunt) {
                 command: 'lodash underscore include=template exports=none -o lodash/lo_template.js'
             },
             test: {
-                command: 'nodeunit testing/*.js'
+                command: 'nodeunit test/*.js'
             },
             build: {
                 command: getCustomBuild
@@ -189,21 +150,21 @@ module.exports = function (grunt) {
         },
         watch: {
             js: {
-                files: '{src,widgets}/**/*',
-                tasks: ['radicbuild'],
+                files: '{src,src-ext}/**/*',
+                tasks: ['testbuild'],
                 options: {
                     liverreload: true
                 }
             },
             html: {
-                files: '{src,widgets,test}/**/*',
-                tasks: ['radicbuild'],
+                files: '{src,src-ext,test}/**/*',
+                tasks: ['testbuild'],
                 options: {
                     livereload: true
                 }
             },
             livereload: {
-                tasks: ['radicbuild'],
+                tasks: ['testbuild'],
                 options: {
                     livereload: '<%= connect.options.livereload %>'
                 },
@@ -225,7 +186,7 @@ module.exports = function (grunt) {
     // grunt.registerTask('updated-jquery', ['copy:jquery2src']);
 
 
-    var modulesToBuild = "custom:*:+core:+github"; //:-github"; //'build:*:+core:+github';
+    var testBuildModules = "custom:*:+core:+github"; //:-github"; //'build:*:+core:+github';
 
 
     grunt.registerTask('dist', function () {
@@ -238,19 +199,17 @@ module.exports = function (grunt) {
             'clean:tmp',
             'uglify:dist'
         ]);
-    })
+    });
 
 
-    grunt.registerTask('radicbuild', [
+    grunt.registerTask('testbuild', [
         'clean:tmp',
         'clean:dist',
         'copy:src2build',
         'preprocess:js',
-        modulesToBuild,
-        'copy:widgets2dist',
+        testBuildModules,
         'preprocess:html',
         'clean:tmp',
-        'copy:test2dist',
         //   'uglify:dist'
     ]);
 
@@ -266,7 +225,7 @@ module.exports = function (grunt) {
             return grunt.task.run(['build', 'connect:dist:keepalive']);
         }
         grunt.task.run([
-            'radicbuild',
+            'testbuild',
             // 'concurrent:server',
 
             'connect:livereload',

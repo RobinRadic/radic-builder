@@ -1,17 +1,6 @@
 define([
-    "./core",
-    "./core/init",
-    "./selector",
-    "./traversing",
-    "./callbacks",
-    "./deferred",
-    "./core/ready",
-    "./ajax",
-    "./event",
-    "./sprintf"
+    "./core"
 ], function (jQuery) {
-
-    var document = window.document;
 
     function getDomain() {
         var d = document.domain;
@@ -31,7 +20,8 @@ define([
         return expr.toGMTString();
     }
 
-    jQuery.cookie = {
+    jQuery.extend({
+        cookie: {
 
             options: {
                 expire: 2, // day
@@ -54,7 +44,7 @@ define([
                     try {
                         value = jQuery.parseJSON(value);
                     }
-                    catch(e){
+                    catch (e) {
                         value = jQuery.parseJSON('{ data: ' + value + ' }');
                     }
                 }
@@ -86,8 +76,8 @@ define([
                 // console.log(cookie);
                 return document.cookie = cookie;
             }
-        };
-
+        }
+    });
 
 
     return jQuery;

@@ -2,6 +2,20 @@ var b = require('nodeunit-b');
 var assert = require('assert-plus');
 
 
+var fs   = require('fs');
+var path = require('path');
+var util = require('util');
+var yaml = require('js-yaml');
+
+function getConfig() {
+    var filename = path.join(__dirname, '../_config.yml'),
+        contents = fs.readFileSync(filename, 'utf8');
+
+    return yaml.load(contents);
+}
+
+console.log(util.inspect(data, false, 10, true));
+
 // you'll want to use __dirname to pin root relative to your test file.
 // arguments to setRequireRoot are run through path.join.
 b.setInjectRoot(__dirname);
@@ -9,7 +23,7 @@ b.setInjectRoot(__dirname);
 b.inject([
     // relative to where you set inject root
     // Note that these files will be checked for syntax errors.
-    'dist/jquery.js'
+    'dist/' + config.build.filename + '.js'
 ]);
 
 function assertTest(type, object, message) {
